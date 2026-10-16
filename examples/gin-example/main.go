@@ -13,11 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 
 	agenttel "go.agenttel.dev/agenttel-go"
@@ -28,70 +26,48 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	// Load AgentTel config
-	cfg, err := agenttel.LoadConfig("agenttel.yml")
-	if err != nil {
-		log.Printf("Warning: could not load agenttel.yml: %v (using defaults)", err)
-		cfg = agenttel.DefaultConfig()
-	}
-
-	// Set up OTel exporter
-	endpoint := envOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318")
-	exporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpoint(endpoint),
-		otlptracehttp.WithInsecure(),
-	)
-	if err != nil {
-		log.Fatalf("Failed to create OTLP exporter: %v", err)
-	}
-
-	// Build AgentTel engine
-	engine, err := agenttel.New().WithConfig(cfg).Build()
+	// Build the AgentTel engine from agenttel.yml: topology, baselines and
+	// decision context (retryable, runbook, escalation) per "METHOD /route".
+	engine, err := agenttel.New().WithConfigFile("agenttel.yml").Build()
 	if err != nil {
 		log.Fatalf("Failed to build AgentTel engine: %v", err)
 	}
 
-	// Create TracerProvider with AgentTel processor
-	res, _ := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(cfg.Topology.ServiceName),
-			semconv.ServiceVersion("1.0.0"),
-			attribute.String("agenttel.topology.team", cfg.Topology.Team),
-			attribute.String("agenttel.topology.tier", cfg.Topology.Tier),
-		),
-	)
+	// Exporter: OTLP/HTTP by default, stdout with OTEL_TRACES_EXPORTER=console.
+	var exporter sdktrace.SpanExporter
+	if os.Getenv("OTEL_TRACES_EXPORTER") == "console" {
+		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
+	} else {
+		exporter, err = otlptracehttp.New(ctx,
+			otlptracehttp.WithEndpoint(envOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318")),
+			otlptracehttp.WithInsecure(),
+		)
+	}
+	if err != nil {
+		log.Fatalf("Failed to create exporter: %v", err)
+	}
 
+	// TracerProvider with topology on the resource and the AgentTel processor.
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(engine.Resource()),
 		sdktrace.WithSpanProcessor(engine.SpanProcessor()),
-		sdktrace.WithResource(res),
+		sdktrace.WithBatcher(exporter),
 	)
-	defer tp.Shutdown(ctx)
+	defer tp.Shutdown(context.Background())
 	otel.SetTracerProvider(tp)
 
-	// Configure AgentTel enrichment for Gin
-	enrichCfg := &aggin.Config{}
-	aggin.WithBaselineProvider(engine.BaselineProvider)(enrichCfg)
-	aggin.WithTopology(engine.TopologyRegistry)(enrichCfg)
-
-	// Set up Gin router
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	// Apply OTel instrumentation middleware
-	r.Use(otelgin.Middleware(cfg.Topology.ServiceName))
+	// otelgin creates the server span ...
+	r.Use(otelgin.Middleware(engine.Config.Topology.ServiceName))
 
-	// Apply AgentTel enrichment via onRequest hook
+	// ... and AgentTel enriches it. c.FullPath() is the route template
+	// ("/api/payments/:id"), which matches the config key "GET /api/payments/:id".
+	enrichCfg := aggin.NewConfig(aggin.WithEngine(engine))
 	r.Use(func(c *gin.Context) {
-		span := trace.SpanFromContext(c.Request.Context())
-		routePattern := c.FullPath()
-		if routePattern == "" {
-			routePattern = c.Request.URL.Path
-		}
-		aggin.EnrichSpan(span, c.Request.Method, routePattern, enrichCfg)
+		aggin.EnrichSpan(trace.SpanFromContext(c.Request.Context()), c.Request.Method, c.FullPath(), enrichCfg)
 		c.Next()
 	})
 

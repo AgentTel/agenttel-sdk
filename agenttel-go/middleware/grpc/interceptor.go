@@ -4,19 +4,22 @@ package grpc
 import (
 	"context"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 
-	attrs "go.agenttel.dev/agenttel-go/attributes"
+	agenttel "go.agenttel.dev/agenttel-go"
 	"go.agenttel.dev/agenttel-go/baseline"
+	"go.agenttel.dev/agenttel-go/enrich"
+	"go.agenttel.dev/agenttel-go/operations"
 	"go.agenttel.dev/agenttel-go/topology"
 )
 
-// Config holds interceptor configuration.
+// Config holds interceptor configuration. Operations are keyed by the gRPC
+// full method name, e.g. "/payments.v1.Payments/Charge".
 type Config struct {
 	BaselineProvider baseline.Provider
 	Topology         *topology.Registry
+	Decisions        operations.Provider
 }
 
 // Option configures the interceptor.
@@ -30,6 +33,20 @@ func WithBaselineProvider(p baseline.Provider) Option {
 // WithTopology sets the topology registry.
 func WithTopology(t *topology.Registry) Option {
 	return func(c *Config) { c.Topology = t }
+}
+
+// WithDecisions sets the per-operation decision context (retryable, runbook, ...).
+func WithDecisions(p operations.Provider) Option {
+	return func(c *Config) { c.Decisions = p }
+}
+
+// WithEngine takes topology, baselines and decisions from an AgentTel engine.
+func WithEngine(e *agenttel.Engine) Option {
+	return func(c *Config) {
+		c.BaselineProvider = e.BaselineProvider
+		c.Topology = e.TopologyRegistry
+		c.Decisions = e.Operations
+	}
 }
 
 // UnaryServerInterceptor returns a gRPC unary server interceptor that
@@ -75,28 +92,9 @@ func buildConfig(opts []Option) *Config {
 }
 
 func enrichSpan(span trace.Span, fullMethod string, cfg *Config) {
-	// Topology
-	if cfg.Topology != nil {
-		if team := cfg.Topology.Team(); team != "" {
-			span.SetAttributes(attribute.String(attrs.TopologyTeam, team))
-		}
-		if tier := cfg.Topology.Tier(); tier != "" {
-			span.SetAttributes(attribute.String(attrs.TopologyTier, tier))
-		}
-		if domain := cfg.Topology.Domain(); domain != "" {
-			span.SetAttributes(attribute.String(attrs.TopologyDomain, domain))
-		}
+	if !span.IsRecording() {
+		return
 	}
-
-	// Baselines
-	if cfg.BaselineProvider != nil {
-		if b, ok := cfg.BaselineProvider.GetBaseline(fullMethod); ok {
-			span.SetAttributes(
-				attribute.Float64(attrs.BaselineLatencyP50Ms, b.LatencyP50Ms),
-				attribute.Float64(attrs.BaselineLatencyP99Ms, b.LatencyP99Ms),
-				attribute.Float64(attrs.BaselineErrorRate, b.ErrorRate),
-				attribute.String(attrs.BaselineSource, b.Source),
-			)
-		}
-	}
+	enrich.Topology(span, cfg.Topology)
+	enrich.Operation(span, fullMethod, cfg.BaselineProvider, cfg.Decisions)
 }
