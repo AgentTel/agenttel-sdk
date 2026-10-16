@@ -1,11 +1,20 @@
 import { trace } from '@opentelemetry/api';
 import type { BaselineProvider } from '../baseline/provider.js';
 import type { TopologyRegistry } from '../topology/registry.js';
-import * as attrs from '../attributes.js';
+import type { DecisionProvider } from '../operations.js';
+import { enrichOperation, enrichTopology } from '../enrich.js';
 
 export interface FastifyPluginOptions {
+  /** Shorthand: take topology, baselines and decisions from an AgentTelEngine. */
+  engine?: {
+    topology: TopologyRegistry;
+    baselineProvider: BaselineProvider;
+    operations: DecisionProvider;
+  };
   baselineProvider?: BaselineProvider;
   topology?: TopologyRegistry;
+  /** Decision context per operation, usually `engine.operations`. */
+  operations?: DecisionProvider;
 }
 
 interface FastifyRequest {
@@ -23,12 +32,14 @@ interface FastifyInstance {
 }
 
 /**
- * Fastify plugin that enriches the current OTel span with AgentTel attributes.
+ * Fastify plugin that enriches the active HTTP server span with AgentTel
+ * topology, baseline and decision attributes for "METHOD /route".
  *
  * Usage:
  * ```ts
- * import { fastifyPlugin } from '@agenttel/node';
- * fastify.register(fastifyPlugin, { topology, baselineProvider });
+ * import { AgentTelEngine, fastifyPlugin } from '@agenttel/node';
+ * const engine = AgentTelEngine.fromConfigFile('agenttel.yml');
+ * fastify.register(fastifyPlugin, { engine });
  * ```
  */
 export function fastifyPlugin(
@@ -36,36 +47,22 @@ export function fastifyPlugin(
   options: FastifyPluginOptions,
   done: () => void,
 ): void {
+  const topology = options.topology ?? options.engine?.topology;
+  const sources = {
+    baselineProvider: options.baselineProvider ?? options.engine?.baselineProvider,
+    decisions: options.operations ?? options.engine?.operations,
+  };
+
   fastify.addHook('onRequest', (req: FastifyRequest, _reply: FastifyReply, hookDone: () => void) => {
     const span = trace.getActiveSpan();
-    if (!span) {
-      hookDone();
-      return;
+    if (span) {
+      // Routing has already happened at onRequest, so the template is known.
+      const route = req.routeOptions?.url;
+      if (route) span.setAttribute('http.route', route);
+      const routePattern = route ?? req.url;
+      if (topology) enrichTopology(span, topology);
+      enrichOperation(span, `${req.method} ${routePattern}`, sources);
     }
-
-    // Resolve route pattern
-    const routePattern = req.routeOptions?.url ?? req.url;
-    const opName = `${req.method} ${routePattern}`;
-
-    // Topology enrichment
-    if (options.topology) {
-      const t = options.topology;
-      if (t.team) span.setAttribute(attrs.TOPOLOGY_TEAM, t.team);
-      if (t.tier) span.setAttribute(attrs.TOPOLOGY_TIER, t.tier);
-      if (t.domain) span.setAttribute(attrs.TOPOLOGY_DOMAIN, t.domain);
-    }
-
-    // Baseline enrichment
-    if (options.baselineProvider) {
-      const baseline = options.baselineProvider.getBaseline(opName);
-      if (baseline) {
-        span.setAttribute(attrs.BASELINE_LATENCY_P50_MS, baseline.latencyP50Ms);
-        span.setAttribute(attrs.BASELINE_LATENCY_P99_MS, baseline.latencyP99Ms);
-        span.setAttribute(attrs.BASELINE_ERROR_RATE, baseline.errorRate);
-        span.setAttribute(attrs.BASELINE_SOURCE, baseline.source);
-      }
-    }
-
     hookDone();
   });
 

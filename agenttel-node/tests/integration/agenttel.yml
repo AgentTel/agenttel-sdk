@@ -1,0 +1,23 @@
+agenttel:
+  topology:
+    service-name: payment-service
+    team: payments-platform
+    tier: critical
+    domain: commerce
+    on-call-channel: "#payments-oncall"
+  profiles:
+    critical-write:
+      retryable: false
+      escalation-level: page_oncall
+  operations:
+    "[POST /api/payments]":
+      profile: critical-write
+      expected-latency-p50: 45ms
+      expected-latency-p99: 200ms
+      expected-error-rate: 0.001
+      retryable: true
+      idempotent: true
+      runbook-url: https://wiki.example.com/runbooks/payments
+    "GET /api/payments/{id}":
+      expected-latency-p50: 15
+      expected-latency-p99: 80

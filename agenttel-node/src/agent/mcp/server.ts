@@ -1,7 +1,7 @@
-import { type AgentIdentity, type AuthConfig, ToolPermissionRegistry, resolveKey } from './auth';
+import { type AgentIdentity, type AuthConfig, ToolPermissionRegistry, resolveKey } from './auth.js';
 
-export type { AgentIdentity, AuthConfig } from './auth';
-export { ToolPermission, ToolPermissionRegistry } from './auth';
+export type { AgentIdentity, AuthConfig } from './auth.js';
+export { ToolPermission, ToolPermissionRegistry } from './auth.js';
 
 export interface MCPTool {
   name: string;

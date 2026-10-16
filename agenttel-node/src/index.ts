@@ -5,7 +5,11 @@ export type { ProcessorOptions } from './processor.js';
 
 // Config
 export { loadConfig, loadConfigFromEnv, defaultConfig } from './config.js';
-export type { AgentTelConfig, TopologyConfig, DependencyConfig, ConsumerConfig, OperationConfig, SLOConfig } from './config.js';
+export { loadConfig as loadConfigFile, parseConfig } from './config.js';
+export type { AgentTelConfig, TopologyConfig, DependencyConfig, ConsumerConfig, OperationConfig, ProfileConfig, SLOConfig } from './config.js';
+export { OperationRegistry, normalizeOperationName, parseDurationMs } from './operations.js';
+export type { DecisionContext, DecisionProvider } from './operations.js';
+export { enrichOperation, enrichTopology } from './enrich.js';
 
 // Attributes
 export * from './attributes.js';

@@ -1,46 +1,12 @@
+import { engine, sdk } from './telemetry.js'; // must be the first import
 import Fastify from 'fastify';
 import { trace } from '@opentelemetry/api';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import {
-  AgentTelEngineBuilder,
-  fastifyPlugin,
-  loadConfig,
-} from '@agenttel/node';
-
-// Load AgentTel config
-const config = loadConfig('agenttel.yml');
-
-// Set up OTel
-const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318';
-const exporter = new OTLPTraceExporter({ url: `${endpoint}/v1/traces` });
-
-const sdk = new NodeSDK({
-  resource: new Resource({
-    [ATTR_SERVICE_NAME]: config.topology?.serviceName ?? 'fastify-payment-service',
-    [ATTR_SERVICE_VERSION]: '1.0.0',
-  }),
-  traceExporter: exporter,
-});
-
-sdk.start();
-
-// Build AgentTel engine
-const engine = new AgentTelEngineBuilder()
-  .withTeam(config.topology?.team ?? 'payments-platform')
-  .withTier(config.topology?.tier ?? 'critical')
-  .withDomain(config.topology?.domain ?? 'commerce')
-  .build();
+import { fastifyPlugin } from '@agenttel/node';
 
 const app = Fastify({ logger: true });
 
-// Apply AgentTel middleware via Fastify plugin
-app.register(fastifyPlugin, {
-  baselineProvider: engine.baselineProvider,
-  topology: engine.topologyRegistry,
-});
+// Enrich HTTP server spans with topology, baselines and decisions (retryable, runbook, ...)
+app.register(fastifyPlugin, { engine });
 
 // Routes
 app.post('/api/payments', async (_request, reply) => {
