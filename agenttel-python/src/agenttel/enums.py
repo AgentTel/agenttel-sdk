@@ -83,6 +83,7 @@ class ImpactScope(StrEnum):
 
 
 class EscalationLevel(StrEnum):
+    AUTO_RESOLVE = "auto_resolve"
     NOTIFY_TEAM = "notify_team"
     PAGE_ONCALL = "page_oncall"
     PAGE_MANAGER = "page_manager"
@@ -98,7 +99,7 @@ class AgentRole(StrEnum):
 
 class ConsumptionPattern(StrEnum):
     SYNC = "sync"
-    ASYNC = "async_"
+    ASYNC = "async"
     BATCH = "batch"
     STREAMING = "streaming"
 

@@ -4,7 +4,9 @@
 TOPOLOGY_TEAM = "agenttel.topology.team"
 TOPOLOGY_TIER = "agenttel.topology.tier"
 TOPOLOGY_DOMAIN = "agenttel.topology.domain"
-TOPOLOGY_ONCALL_CHANNEL = "agenttel.topology.oncall_channel"
+TOPOLOGY_ON_CALL_CHANNEL = "agenttel.topology.on_call_channel"
+TOPOLOGY_ONCALL_CHANNEL = TOPOLOGY_ON_CALL_CHANNEL  # deprecated alias
+TOPOLOGY_REPO_URL = "agenttel.topology.repo_url"
 TOPOLOGY_SERVICE_VERSION = "agenttel.topology.service_version"
 
 # Dependency attributes
@@ -23,13 +25,22 @@ CONSUMER_NAME = "agenttel.consumer.name"
 CONSUMER_PATTERN = "agenttel.consumer.pattern"
 CONSUMER_SLA_LATENCY_MS = "agenttel.consumer.sla_latency_ms"
 
-# Operation context attributes
-OPERATION_RETRYABLE = "agenttel.operation.retryable"
-OPERATION_IDEMPOTENT = "agenttel.operation.idempotent"
-OPERATION_RUNBOOK_URL = "agenttel.operation.runbook_url"
-OPERATION_FALLBACK_DESCRIPTION = "agenttel.operation.fallback_description"
-OPERATION_ESCALATION_LEVEL = "agenttel.operation.escalation_level"
-OPERATION_SAFE_TO_RESTART = "agenttel.operation.safe_to_restart"
+# Decision attributes (operation context an agent needs to act safely)
+DECISION_RETRYABLE = "agenttel.decision.retryable"
+DECISION_IDEMPOTENT = "agenttel.decision.idempotent"
+DECISION_RUNBOOK_URL = "agenttel.decision.runbook_url"
+DECISION_FALLBACK_AVAILABLE = "agenttel.decision.fallback_available"
+DECISION_FALLBACK_DESCRIPTION = "agenttel.decision.fallback_description"
+DECISION_ESCALATION_LEVEL = "agenttel.decision.escalation_level"
+DECISION_SAFE_TO_RESTART = "agenttel.decision.safe_to_restart"
+
+# Deprecated aliases (pre-0.4.0 names); values now match attributes.json
+OPERATION_RETRYABLE = DECISION_RETRYABLE
+OPERATION_IDEMPOTENT = DECISION_IDEMPOTENT
+OPERATION_RUNBOOK_URL = DECISION_RUNBOOK_URL
+OPERATION_FALLBACK_DESCRIPTION = DECISION_FALLBACK_DESCRIPTION
+OPERATION_ESCALATION_LEVEL = DECISION_ESCALATION_LEVEL
+OPERATION_SAFE_TO_RESTART = DECISION_SAFE_TO_RESTART
 OPERATION_PROFILE = "agenttel.operation.profile"
 
 # Baseline attributes

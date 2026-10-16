@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agenttel"
-version = "0.3.0a1"
+version = "0.4.0a1"
 description = "AgentTel Python SDK — AI-native telemetry for Python services"
 readme = "README.md"
 license = "Apache-2.0"
@@ -39,6 +39,7 @@ dev = [
     "pytest-asyncio>=0.21",
     "httpx>=0.24",
     "respx>=0.20",
+    "uvicorn>=0.24",
 ]
 
 [project.entry-points."opentelemetry_traces"]

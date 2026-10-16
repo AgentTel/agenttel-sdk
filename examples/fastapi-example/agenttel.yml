@@ -8,12 +8,12 @@ agenttel:
 
   dependencies:
     - name: payment-gateway
-      type: rest_api
-      criticality: critical
+      type: external_api
+      criticality: required
       timeout-ms: 5000
     - name: customer-db
       type: database
-      criticality: critical
+      criticality: required
       timeout-ms: 3000
 
   consumers:
@@ -29,7 +29,7 @@ agenttel:
       expected-error-rate: 0.001
       retryable: false
       idempotent: false
-    "GET /api/payments/{id}":
+    "GET /api/payments/{payment_id}":
       expected-latency-p50: 15ms
       expected-latency-p99: 80ms
       retryable: true
@@ -47,5 +47,5 @@ agenttel:
       target: 0.999
       type: availability
     payment-latency:
-      target: 200
-      type: latency
+      target: 0.99
+      type: latency_p99

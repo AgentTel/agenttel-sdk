@@ -116,15 +116,30 @@ class AgentTelEngine:
     def event_emitter(self) -> AgentTelEventEmitter:
         return self._event_emitter
 
-    def install(self, tracer_provider: TracerProvider | None = None) -> None:
-        """Install the AgentTel span processor into the OTel SDK."""
-        if tracer_provider is None:
-            # Create a new provider with topology resource attributes
-            resource = Resource.create(self._topology.get_topology_attributes())
-            tracer_provider = TracerProvider(resource=resource)
-            trace.set_tracer_provider(tracer_provider)
+    def install(self, tracer_provider: TracerProvider | None = None) -> TracerProvider:
+        """Install the AgentTel span processor into the OTel SDK.
 
+        Uses ``tracer_provider`` if given, otherwise the globally registered SDK
+        ``TracerProvider`` if the application already set one. Only when no SDK
+        provider exists is a new one created (with topology on its resource) and
+        registered globally. Installing twice is a no-op.
+        """
+        if tracer_provider is None:
+            current = trace.get_tracer_provider()
+            if isinstance(current, TracerProvider):
+                tracer_provider = current
+            else:
+                attrs: dict[str, str] = dict(self._topology.get_topology_attributes())
+                if self._config.topology.service_name:
+                    attrs.setdefault("service.name", self._config.topology.service_name)
+                tracer_provider = TracerProvider(resource=Resource.create(attrs))
+                trace.set_tracer_provider(tracer_provider)
+
+        if getattr(tracer_provider, "_agenttel_installed", None) is self:
+            return tracer_provider
+        self._merge_topology_into_resource(tracer_provider)
         tracer_provider.add_span_processor(self._processor)
+        tracer_provider._agenttel_installed = self  # type: ignore[attr-defined]
 
         # Emit deployment event if configured
         if self._config.deployment.emit_on_startup:
@@ -133,17 +148,40 @@ class AgentTelEngine:
                 environment=self._config.deployment.environment,
                 deployment_id=self._config.deployment.deployment_id,
             )
+        return tracer_provider
+
+    def _merge_topology_into_resource(self, provider: TracerProvider) -> None:
+        """Best effort: add topology to an existing provider's resource.
+
+        Tracers created after this call carry the merged resource. Span-level
+        topology attributes are always set by the processor regardless.
+        """
+        resource = getattr(provider, "_resource", None)
+        if not isinstance(resource, Resource):
+            return
+        missing = {
+            k: v
+            for k, v in self._topology.get_topology_attributes().items()
+            if k not in resource.attributes
+        }
+        if not missing:
+            return
+        update = getattr(provider, "_update_resource", None)
+        if callable(update):  # opentelemetry-sdk >= 1.39 also updates existing tracers
+            update(Resource(missing))
+        else:
+            provider._resource = resource.merge(Resource(missing))  # type: ignore[attr-defined]
 
     def _register_static_baselines(self) -> None:
         """Register static baselines from operation configs."""
         for op_name, op_config in self._config.operations.items():
             p50 = op_config.latency_p50_ms
             p99 = op_config.latency_p99_ms
-            if p50 is not None and p99 is not None:
+            if p50 is not None or p99 is not None or op_config.expected_error_rate is not None:
                 baseline = OperationBaseline(
                     operation_name=op_name,
-                    latency_p50_ms=p50,
-                    latency_p99_ms=p99,
+                    latency_p50_ms=p50 or 0.0,
+                    latency_p99_ms=p99 or 0.0,
                     error_rate=op_config.expected_error_rate or 0.0,
                     source=BaselineSource.STATIC,
                 )
