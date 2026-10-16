@@ -46,7 +46,10 @@ All SDKs now accept the Spring Boot dialect:
 
 ### JVM
 
-- No functional changes; version bump only.
+- **Fixed (javaagent):** HTTP server spans now get baselines and decisions. Previously `-javaagent` runs added no `agenttel.*` attributes to Tomcat/servlet server spans: those start as `POST` and only get their route name later, so the processor's start-time lookup missed them. The Spring Boot starter has a route-aware interceptor, but the agent had nothing equivalent. `AgentTelEnrichingSpanExporter.withOperationMetadata(...)` now adds static baselines and decisions at export time, resolved from the final span name or `METHOD http.route`. The javaagent enables it.
+- **Fixed (javaagent):** `"[POST /api/payments]"` keys work in the agent's `agenttel.yml` (brackets were kept literally). Topology is now added to the Resource through a resource customizer, so it no longer depends on ResourceProvider SPI discovery.
+- **Fixed (build):** jar file names and javadoc titles used a hard-coded `0.2.0-alpha` project version. The project version now comes from `VERSION_NAME`; Maven coordinates were already correct.
+- Added `JavaagentIntegrationTest`: it runs a plain Spring Boot app with `-javaagent:<built agent jar>`, sends one request and asserts the exported server span and resource.
 
 ## [0.3.0-alpha] - 2026-03-20
 
