@@ -50,21 +50,21 @@ Teardown: `docker compose -f docker/docker-compose.yml down -v`
         <dependency>
             <groupId>dev.agenttel</groupId>
             <artifactId>agenttel-spring-boot-starter</artifactId>
-            <version>0.2.0-alpha</version>
+            <version>0.4.0-alpha</version>
         </dependency>
 
         <!-- Optional: GenAI instrumentation -->
         <dependency>
             <groupId>dev.agenttel</groupId>
             <artifactId>agenttel-genai</artifactId>
-            <version>0.2.0-alpha</version>
+            <version>0.4.0-alpha</version>
         </dependency>
 
         <!-- Optional: Agent interface layer (MCP server, incident context, remediation) -->
         <dependency>
             <groupId>dev.agenttel</groupId>
             <artifactId>agenttel-agent</artifactId>
-            <version>0.2.0-alpha</version>
+            <version>0.4.0-alpha</version>
         </dependency>
     </dependencies>
     ```
@@ -74,13 +74,13 @@ Teardown: `docker compose -f docker/docker-compose.yml down -v`
     ```kotlin
     dependencies {
         // Core: span enrichment, baselines, anomaly detection, SLO tracking
-        implementation("dev.agenttel:agenttel-spring-boot-starter:0.2.0-alpha")
+        implementation("dev.agenttel:agenttel-spring-boot-starter:0.4.0-alpha")
 
         // Optional: GenAI instrumentation
-        implementation("dev.agenttel:agenttel-genai:0.2.0-alpha")
+        implementation("dev.agenttel:agenttel-genai:0.4.0-alpha")
 
         // Optional: Agent interface layer (MCP server, incident context, remediation)
-        implementation("dev.agenttel:agenttel-agent:0.2.0-alpha")
+        implementation("dev.agenttel:agenttel-agent:0.4.0-alpha")
     }
     ```
 
@@ -89,13 +89,13 @@ Teardown: `docker compose -f docker/docker-compose.yml down -v`
     ```groovy
     dependencies {
         // Core: span enrichment, baselines, anomaly detection, SLO tracking
-        implementation 'dev.agenttel:agenttel-spring-boot-starter:0.2.0-alpha'
+        implementation 'dev.agenttel:agenttel-spring-boot-starter:0.4.0-alpha'
 
         // Optional: GenAI instrumentation
-        implementation 'dev.agenttel:agenttel-genai:0.2.0-alpha'
+        implementation 'dev.agenttel:agenttel-genai:0.4.0-alpha'
 
         // Optional: Agent interface layer (MCP server, incident context, remediation)
-        implementation 'dev.agenttel:agenttel-agent:0.2.0-alpha'
+        implementation 'dev.agenttel:agenttel-agent:0.4.0-alpha'
     }
     ```
 
@@ -274,45 +274,63 @@ agenttel:
 
     ```go
     import (
+        "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+        "go.opentelemetry.io/otel"
+        sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
         agenttel "go.agenttel.dev/agenttel-go"
         agmw "go.agenttel.dev/agenttel-go/middleware/http"
     )
 
-    cfg, _ := agenttel.LoadConfigFile("agenttel.yml")
-    engine := agenttel.NewEngineBuilder(cfg).Build()
+    engine, err := agenttel.New().WithConfigFile("agenttel.yml").Build()
+    if err != nil {
+        log.Fatal(err)
+    }
+    tp := sdktrace.NewTracerProvider(
+        sdktrace.WithResource(engine.Resource()),
+        sdktrace.WithSpanProcessor(engine.SpanProcessor()),
+        sdktrace.WithBatcher(exporter),
+    )
+    otel.SetTracerProvider(tp)
 
     mux := http.NewServeMux()
-    // ... register handlers ...
+    mux.HandleFunc("POST /api/payments", createPayment)
 
-    handler := agmw.Middleware(mux,
-        agmw.WithBaselineProvider(engine.BaselineProvider()),
-        agmw.WithTopology(engine.TopologyRegistry()),
-    )
+    // otelhttp creates the server span; AgentTel enriches it for the matched route
+    handler := otelhttp.NewHandler(agmw.Middleware(agmw.WithEngine(engine))(mux), "server")
     http.ListenAndServe(":8080", handler)
     ```
 
 === "Gin"
 
     ```go
-    import agmw "go.agenttel.dev/agenttel-go/middleware/gin"
+    import (
+        "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+        aggin "go.agenttel.dev/agenttel-go/middleware/gin"
+    )
 
-    r := gin.Default()
-    r.Use(agmw.Middleware(engine.BaselineProvider(), engine.TopologyRegistry()))
+    cfg := aggin.NewConfig(aggin.WithEngine(engine))
+    r := gin.New()
+    r.Use(otelgin.Middleware("payment-service"))
+    r.Use(func(c *gin.Context) {
+        aggin.EnrichSpan(trace.SpanFromContext(c.Request.Context()), c.Request.Method, c.FullPath(), cfg)
+        c.Next()
+    })
     ```
 
 === "gRPC"
 
     ```go
-    import agmw "go.agenttel.dev/agenttel-go/middleware/grpc"
+    import aggrpc "go.agenttel.dev/agenttel-go/middleware/grpc"
 
+    // Operations are keyed by full method name, e.g. "/payments.v1.Payments/Charge"
     srv := grpc.NewServer(
-        grpc.UnaryInterceptor(agmw.UnaryServerInterceptor(
-            engine.BaselineProvider(), engine.TopologyRegistry(),
-        )),
+        grpc.StatsHandler(otelgrpc.NewServerHandler()),
+        grpc.UnaryInterceptor(aggrpc.UnaryServerInterceptor(aggrpc.WithEngine(engine))),
     )
     ```
 
-All spans are automatically enriched with topology, baselines, anomaly detection, and SLO tracking — identical attributes to the JVM SDK.
+HTTP server spans get topology, static baselines and decision attributes (`retryable`, `runbook_url`, `escalation_level`, ...) for their `METHOD /route` — identical attributes to the JVM SDK.
 
 ### 4. GenAI Instrumentation (Optional)
 
@@ -346,9 +364,9 @@ defer step.End()
 
 | Component | Versions |
 |-----------|----------|
-| Go | 1.22+ |
-| OpenTelemetry SDK | 1.33.0+ |
-| net/http, Gin, gRPC | Latest |
+| Go | 1.24+ |
+| OpenTelemetry SDK (`go.opentelemetry.io/otel/sdk`) | 1.39.0+ |
+| net/http (+ `otelhttp`), Gin 1.11+ (+ `otelgin`), gRPC 1.79+ | |
 
 ---
 
@@ -386,19 +404,24 @@ agenttel:
 === "Express"
 
     ```typescript
-    import { AgentTelEngineBuilder, expressMiddleware, loadConfig } from '@agenttel/node';
+    import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+    import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+    import { Resource } from '@opentelemetry/resources';
+    import { registerInstrumentations } from '@opentelemetry/instrumentation';
+    import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
+    import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+    import { AgentTelEngine, expressMiddleware } from '@agenttel/node';
 
-    const config = loadConfig('agenttel.yml');
-    const engine = new AgentTelEngineBuilder()
-      .withTeam(config.topology?.team ?? 'payments-platform')
-      .withTier(config.topology?.tier ?? 'critical')
-      .build();
+    const engine = AgentTelEngine.fromConfigFile('agenttel.yml');
+    const provider = new NodeTracerProvider({
+      resource: new Resource(engine.resourceAttributes()),
+      spanProcessors: [engine.spanProcessor, new BatchSpanProcessor(exporter)],
+    });
+    provider.register();
+    registerInstrumentations({ instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()] });
 
     const app = express();
-    app.use(expressMiddleware({
-      baselineProvider: engine.baselineProvider,
-      topology: engine.topologyRegistry,
-    }));
+    app.use(expressMiddleware({ engine }));
     ```
 
 === "Fastify"
@@ -407,14 +430,12 @@ agenttel:
     import Fastify from 'fastify';
     import { fastifyPlugin } from '@agenttel/node';
 
+    // same provider + HttpInstrumentation setup as for Express
     const fastify = Fastify();
-    fastify.register(fastifyPlugin, {
-      baselineProvider: engine.baselineProvider,
-      topology: engine.topologyRegistry,
-    });
+    await fastify.register(fastifyPlugin, { engine });
     ```
 
-All spans are automatically enriched with topology, baselines, anomaly detection, and SLO tracking — identical attributes to the JVM SDK.
+HTTP server spans get topology, static baselines and decision attributes (`retryable`, `runbook_url`, `escalation_level`, ...) for their `METHOD /route` — identical attributes to the JVM SDK. The package loads under plain `node` as ESM or CommonJS.
 
 ### 4. GenAI Instrumentation (Optional)
 
@@ -447,10 +468,10 @@ inv.end();
 
 | Component | Versions |
 |-----------|----------|
-| Node.js | 18+ |
+| Node.js | 18+ (ESM and CommonJS) |
 | TypeScript | 5.0+ |
-| OpenTelemetry SDK | 1.30.0+ |
-| Express, Fastify | Latest |
+| OpenTelemetry JS SDK | 1.25.0+ (1.x) |
+| Express 4/5, Fastify 4/5 | |
 
 ---
 
@@ -496,7 +517,7 @@ app = FastAPI()
 instrument_fastapi(app)  # One-line integration
 ```
 
-All spans are automatically enriched with topology, baselines, anomaly detection, and SLO tracking — identical attributes to the JVM SDK.
+`instrument_fastapi()` attaches the AgentTel span processor to your existing OpenTelemetry `TracerProvider` (or creates one if none is set) and instruments the app with `opentelemetry-instrumentation-fastapi`. HTTP server spans get topology, static baselines and decision attributes for their `METHOD /route` — identical attributes to the JVM SDK.
 
 ### 4. GenAI Instrumentation (Optional)
 
@@ -674,14 +695,14 @@ Add observability to your AI agent's lifecycle — invocations, reasoning steps,
     <dependency>
         <groupId>dev.agenttel</groupId>
         <artifactId>agenttel-agentic</artifactId>
-        <version>0.2.0-alpha</version>
+        <version>0.4.0-alpha</version>
     </dependency>
     ```
 
 === "Gradle (Kotlin)"
 
     ```kotlin
-    implementation("dev.agenttel:agenttel-agentic:0.2.0-alpha")
+    implementation("dev.agenttel:agenttel-agentic:0.4.0-alpha")
     ```
 
 ### 2. Instrument Your Agent

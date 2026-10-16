@@ -4,6 +4,50 @@ All notable changes to AgentTel are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0-alpha] - Unreleased
+
+Every SDK now reads the same `agenttel.yml` and puts the same attributes on HTTP server spans. Package versions: Maven `0.4.0-alpha`, npm `0.4.0-alpha.0`, PyPI `0.4.0a1`, Go `agenttel-go/v0.4.0-alpha`.
+
+### Shared configuration format (Python, Node.js, Go)
+
+All SDKs now accept the Spring Boot dialect:
+
+- `agenttel:` root, kebab-case keys (`on-call-channel`, `expected-latency-p50`, `runbook-url`)
+- `operations` is a map keyed by `"METHOD /route"`. Spring-style `"[POST /api/payments]"` and bare keys are equivalent, and `:id` and `{id}` path parameters match each other
+- latencies are duration strings (`45ms`, `1.5s`, `2m`) or plain numbers of milliseconds
+- `profiles` hold shared decision defaults, and an operation's explicit values override its profile
+- Each SDK's previous dialect (no root, snake_case or camelCase keys, Node's `operations` list) still loads and logs a deprecation warning
+
+### Python (`agenttel`)
+
+- **Fixed:** FastAPI server spans now get baselines and decisions. The middleware resolves the route template and enriches the active server span, so it no longer depends on the span name at `on_start`. `opentelemetry-instrumentation-fastapi` names that span `POST` at `on_start` and renames it after routing.
+- **Fixed:** `instrument_fastapi()` reuses an already registered SDK `TracerProvider` instead of creating a second one. Topology is merged into its resource. It also calls `FastAPIInstrumentor.instrument_app()` when the app isn't instrumented yet.
+- **Fixed:** decision attributes now use the `attributes.json` names (`agenttel.decision.*`, previously `agenttel.operation.*`), and on-call is now `agenttel.topology.on_call_channel` (previously `oncall_channel`). The old Python constant names remain as aliases.
+- **Fixed:** `ConsumptionPattern.ASYNC` value is `async` (was `async_`); added `EscalationLevel.AUTO_RESOLVE` (new default, as on the JVM).
+- **Fixed:** `examples/fastapi-example` imported the non-existent `BatchSpanExportProcessor` and used enum values the loader rejects.
+- `AgentTelMiddleware` is now a pure ASGI middleware; `auto_configure()` delegates to `instrument_fastapi()`.
+
+### Node.js (`@agenttel/node`)
+
+- **Fixed:** the package loads under plain Node.js 18/20/22 as ESM (`import`) and CommonJS (`require`). Relative imports use `.js` extensions (enforced by building with `NodeNext`), and `dist/cjs/package.json` marks the CommonJS build.
+- **Added:** Express and Fastify middleware set decision attributes (`retryable`, `idempotent`, `runbook_url`, `escalation_level`, `safe_to_restart`, `fallback_*`). Pass `{ engine }` to set topology, baselines and decisions in one go. Express re-checks the matched route template before the response ends, and Fastify records `http.route`.
+- **Added:** `AgentTelEngine.fromConfigFile()`, `builder().withConfigFile()`, `engine.operations` (decision registry), `engine.resourceAttributes()`, `engine.topologyRegistry` alias, `parseConfig`, `normalizeOperationName`, `parseDurationMs`, `enrichOperation`.
+- **Fixed:** the express/fastify examples now register `engine.spanProcessor` and HTTP instrumentation.
+- Tests: real Express and Fastify servers with OTel instrumentation against the built package (`npm test`), and `npm run test:pack`, which installs the packed tarball into a fresh project.
+
+### Go (`go.agenttel.dev/agenttel-go`)
+
+- **Fixed:** YAML `operations` become static baselines and decision context in `Builder.Build()` (previously only `WithStaticBaselines` registered baselines).
+- **Added:** `operations` package (`Registry`, `Decision`, `Normalize`, `ParseDurationMs`), `enrich` package, `Engine.Operations`, `Engine.Resource()` / `Engine.ResourceAttributes()`, `ParseConfig`, `LoadConfigFile` (alias of `LoadConfig`), and `WithEngine` / `WithDecisions` options for the net/http, Gin and gRPC middleware.
+- **Added:** net/http middleware sets decision attributes and, for Go 1.22+ `ServeMux` patterns, records `http.route` and matches `GET /items/{id}` after routing.
+- **Fixed:** `examples/go-service-example` and `examples/gin-example` compile and run against the real API (`agenttel.New().WithConfigFile(...).Build()`, `engine.SpanProcessor()`, `otelhttp` / `otelgin`).
+- **Docs:** minimum versions are Go 1.24 and `go.opentelemetry.io/otel/sdk` v1.39.0 (previously documented as 1.22 / 1.33.0).
+- **Breaking (config struct only):** YAML tags on `AgentTelConfig` are now kebab-case. camelCase files still load, with a warning.
+
+### JVM
+
+- No functional changes; version bump only.
+
 ## [0.3.0-alpha] - 2026-03-20
 
 ### Added

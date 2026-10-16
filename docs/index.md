@@ -334,9 +334,9 @@ Affected Deps: stripe-api
 
 | Component | Supported Versions |
 |-----------|--------------------|
-| Go | 1.22+ |
-| OpenTelemetry SDK | 1.33.0+ |
-| net/http, Gin, gRPC | Latest |
+| Go | 1.24+ |
+| OpenTelemetry SDK (`go.opentelemetry.io/otel/sdk`) | 1.39.0+ |
+| net/http (+ `otelhttp`), Gin 1.11+ (+ `otelgin`), gRPC 1.79+ | |
 
 **Backend (Node.js)**
 

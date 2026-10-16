@@ -121,7 +121,7 @@ agenttel/
 
 ## Current Status
 
-AgentTel is in **alpha** (v0.2.0-alpha). The core instrumentation, GenAI support, and agent interface layer are implemented and tested. The API surface may evolve before 1.0.
+AgentTel is in **alpha** (v0.4.0-alpha). The core instrumentation, GenAI support, and agent interface layer are implemented and tested. The API surface may evolve before 1.0.
 
 ## Further Reading
 
