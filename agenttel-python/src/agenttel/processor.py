@@ -6,6 +6,7 @@ from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from agenttel import attributes as attr
+from agenttel import extension_attributes as ext
 from agenttel.anomaly.detector import AnomalyDetector
 from agenttel.baseline.composite import CompositeBaselineProvider
 from agenttel.baseline.rolling import RollingBaselineProvider
@@ -196,7 +197,7 @@ class AgentTelSpanProcessor(SpanProcessor):
         span.set_attribute(attr.BASELINE_CONFIDENCE, baseline.confidence.value)
         span.set_attribute(attr.BASELINE_SAMPLE_COUNT, baseline.sample_count)
         if baseline.latency_p95_ms > 0:
-            span.set_attribute(attr.BASELINE_LATENCY_P95_MS, baseline.latency_p95_ms)
+            span.set_attribute(ext.BASELINE_LATENCY_P95_MS, baseline.latency_p95_ms)
 
     def _calculate_latency_ms(self, span: ReadableSpan) -> float:
         """Calculate span latency in milliseconds."""

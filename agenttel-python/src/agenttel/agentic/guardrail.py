@@ -10,6 +10,7 @@ from typing import Any
 from opentelemetry import trace
 
 from agenttel import agentic_attributes as aa
+from agenttel import extension_attributes as ext
 from agenttel.enums import GuardrailAction
 
 
@@ -59,13 +60,13 @@ class GuardrailRecorder:
 
         # Set span attributes if available
         if span and span.is_recording():
-            span.set_attribute(aa.GUARDRAIL_TRIGGERED, True)
-            span.set_attribute(aa.GUARDRAIL_NAME, name)
-            span.set_attribute(aa.GUARDRAIL_ACTION, action.value)
+            span.set_attribute(aa.AGENTIC_GUARDRAIL_TRIGGERED, True)
+            span.set_attribute(aa.AGENTIC_GUARDRAIL_NAME, name)
+            span.set_attribute(aa.AGENTIC_GUARDRAIL_ACTION, action.value)
             if reason:
-                span.set_attribute(aa.GUARDRAIL_REASON, reason)
-            span.set_attribute(aa.GUARDRAIL_INPUT_VIOLATION, input_violation)
-            span.set_attribute(aa.GUARDRAIL_OUTPUT_VIOLATION, output_violation)
+                span.set_attribute(aa.AGENTIC_GUARDRAIL_REASON, reason)
+            span.set_attribute(ext.AGENTIC_GUARDRAIL_INPUT_VIOLATION, input_violation)
+            span.set_attribute(ext.AGENTIC_GUARDRAIL_OUTPUT_VIOLATION, output_violation)
 
         return event
 

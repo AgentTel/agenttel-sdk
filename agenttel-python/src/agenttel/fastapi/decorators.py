@@ -8,6 +8,7 @@ from typing import Any, Callable
 from opentelemetry import trace
 
 from agenttel import attributes as attr
+from agenttel import extension_attributes as ext
 
 
 def agent_operation(
@@ -58,7 +59,7 @@ def agent_operation(
             if escalation_level:
                 span.set_attribute(attr.DECISION_ESCALATION_LEVEL, escalation_level)
             if profile:
-                span.set_attribute(attr.OPERATION_PROFILE, profile)
+                span.set_attribute(ext.OPERATION_PROFILE, profile)
 
             # Set baseline from decorator parameters
             p50 = _parse_latency(expected_latency_p50)

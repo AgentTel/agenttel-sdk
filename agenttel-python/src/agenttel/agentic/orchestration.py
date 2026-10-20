@@ -23,8 +23,8 @@ class SequentialOrchestration:
             f"orchestration.sequential {self._name}",
             kind=trace.SpanKind.INTERNAL,
         )
-        span.set_attribute(aa.ORCHESTRATION_PATTERN, OrchestrationPattern.SEQUENTIAL.value)
-        span.set_attribute(aa.ORCHESTRATION_STAGE_COUNT, len(stages))
+        span.set_attribute(aa.AGENTIC_ORCHESTRATION_PATTERN, OrchestrationPattern.SEQUENTIAL.value)
+        span.set_attribute(aa.AGENTIC_ORCHESTRATION_TOTAL_STAGES, len(stages))
 
         results = []
         try:
@@ -34,7 +34,7 @@ class SequentialOrchestration:
                         f"stage {stage_name}",
                         kind=trace.SpanKind.INTERNAL,
                     )
-                    stage_span.set_attribute(aa.ORCHESTRATION_STAGE, stage_name)
+                    stage_span.set_attribute(aa.AGENTIC_ORCHESTRATION_STAGE, stage_name)
                     try:
                         with trace.use_span(stage_span, end_on_exit=False):
                             result = handler()
@@ -72,8 +72,8 @@ class ParallelOrchestration:
             f"orchestration.parallel {self._name}",
             kind=trace.SpanKind.INTERNAL,
         )
-        span.set_attribute(aa.ORCHESTRATION_PATTERN, OrchestrationPattern.PARALLEL.value)
-        span.set_attribute(aa.ORCHESTRATION_PARALLEL_BRANCHES, len(branches))
+        span.set_attribute(aa.AGENTIC_ORCHESTRATION_PATTERN, OrchestrationPattern.PARALLEL.value)
+        span.set_attribute(aa.AGENTIC_ORCHESTRATION_PARALLEL_BRANCHES, len(branches))
 
         results: list[Any] = [None] * len(branches)
         try:
@@ -130,7 +130,7 @@ class EvalLoopOrchestration:
             f"orchestration.eval_loop {self._name}",
             kind=trace.SpanKind.INTERNAL,
         )
-        span.set_attribute(aa.ORCHESTRATION_PATTERN, OrchestrationPattern.EVALUATOR_OPTIMIZER.value)
+        span.set_attribute(aa.AGENTIC_ORCHESTRATION_PATTERN, OrchestrationPattern.EVALUATOR_OPTIMIZER.value)
 
         best_output = None
         best_score = 0.0
@@ -146,10 +146,10 @@ class EvalLoopOrchestration:
                         best_output = output
 
                     if score >= threshold:
-                        span.set_attribute(aa.QUALITY_ITERATIONS, i + 1)
+                        span.set_attribute(aa.AGENTIC_STEP_ITERATION, i + 1)
                         return best_output, best_score, i + 1
 
-                span.set_attribute(aa.QUALITY_ITERATIONS, self._max_iterations)
+                span.set_attribute(aa.AGENTIC_STEP_ITERATION, self._max_iterations)
         except Exception as exc:
             span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             span.record_exception(exc)
