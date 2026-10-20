@@ -4,7 +4,7 @@ All notable changes to AgentTel are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0-alpha] - Unreleased
+## [0.4.0-alpha] - 2026-10-20
 
 Every SDK now reads the same `agenttel.yml` and puts the same attributes on HTTP server spans. Package versions: Maven `0.4.0-alpha`, npm `0.4.0-alpha.0`, PyPI `0.4.0a1`, Go `agenttel-go/v0.4.0-alpha`.
 
