@@ -6,7 +6,7 @@ toolchain go1.24.13
 
 require (
 	github.com/sashabaranov/go-openai v1.36.1
-	go.agenttel.dev/agenttel-go v0.1.0
+	go.agenttel.dev/agenttel-go v0.4.0-alpha
 	go.opentelemetry.io/otel v1.39.0
 	go.opentelemetry.io/otel/sdk v1.39.0
 	go.opentelemetry.io/otel/trace v1.39.0
@@ -21,5 +21,3 @@ require (
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 )
-
-replace go.agenttel.dev/agenttel-go => ../../

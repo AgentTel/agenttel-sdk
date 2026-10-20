@@ -334,14 +334,47 @@ HTTP server spans get topology, static baselines and decision attributes (`retry
 
 ### 4. GenAI Instrumentation (Optional)
 
-```go
-import "go.agenttel.dev/agenttel-go/genai"
+The OpenAI and Anthropic wrappers are separate Go modules, so the core SDK doesn't pull in either vendor SDK:
 
-builder := genai.NewSpanBuilder(tracer)
-ctx, span := builder.StartChatSpan(ctx, "gpt-4o", "openai")
-// ... make LLM call ...
-genai.EndSpanSuccess(span, promptTokens, completionTokens, "gpt-4o")
+```bash
+go get go.agenttel.dev/agenttel-go/genai/openai@v0.4.0-alpha     # github.com/sashabaranov/go-openai
+go get go.agenttel.dev/agenttel-go/genai/anthropic@v0.4.0-alpha  # github.com/anthropics/anthropic-sdk-go
 ```
+
+=== "OpenAI"
+
+    ```go
+    import agenttelopenai "go.agenttel.dev/agenttel-go/genai/openai"
+
+    traced := agenttelopenai.Wrap(openai.NewClient(apiKey))
+    resp, err := traced.CreateChatCompletion(ctx, req) // also CreateChatCompletionStream
+    ```
+
+=== "Anthropic"
+
+    ```go
+    import agenttelanthropic "go.agenttel.dev/agenttel-go/genai/anthropic"
+
+    client := anthropic.NewClient()
+    traced := agenttelanthropic.Wrap(&client.Messages)
+    msg, err := traced.CreateMessage(ctx, params) // also CreateMessageStreaming
+    ```
+
+=== "Any other LLM client"
+
+    ```go
+    import "go.agenttel.dev/agenttel-go/genai"
+
+    ctx, span := genai.NewSpanBuilder(tracer).StartChatSpan(ctx, "gpt-4o", "openai")
+    // ... make the LLM call ...
+    genai.EndSpanSuccess(span, genai.ChatResult{
+        ResponseModel: "gpt-4o",
+        InputTokens:   promptTokens,
+        OutputTokens:  completionTokens,
+    })
+    ```
+
+Each call becomes a `gen_ai.*` span with token usage and `agenttel.genai.cost_usd`.
 
 ### 5. Agentic Observability (Optional)
 

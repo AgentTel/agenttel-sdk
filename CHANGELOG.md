@@ -51,6 +51,7 @@ All SDKs now accept the Spring Boot dialect:
 - **Added:** net/http middleware sets decision attributes and, for Go 1.22+ `ServeMux` patterns, records `http.route` and matches `GET /items/{id}` after routing.
 - **Fixed:** `examples/go-service-example` and `examples/gin-example` compile and run against the real API (`agenttel.New().WithConfigFile(...).Build()`, `engine.SpanProcessor()`, `otelhttp` / `otelgin`).
 - **Docs:** minimum versions are Go 1.24 and `go.opentelemetry.io/otel/sdk` v1.39.0 (previously documented as 1.22 / 1.33.0).
+- **GenAI submodules released:** `go.agenttel.dev/agenttel-go/genai/openai` and `.../genai/anthropic` are tagged `v0.4.0-alpha`. They now require the published `agenttel-go v0.4.0-alpha`; previously they pinned an unpublished `v0.1.0` plus a `replace` and could not be installed. In-repo development uses `agenttel-go/go.work`, and CI also builds them without it, the same way consumers do.
 - **Breaking (config struct only):** YAML tags on `AgentTelConfig` are now kebab-case. camelCase files still load, with a warning.
 
 ### JVM

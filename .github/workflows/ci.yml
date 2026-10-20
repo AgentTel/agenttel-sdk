@@ -55,6 +55,7 @@ jobs:
         working-directory: agenttel-go
         run: go test -race -count=1 -timeout=120s ./...
 
+      # agenttel-go/go.work links the GenAI submodules to this checkout's agenttel-go
       - name: Test GenAI Anthropic
         working-directory: agenttel-go/genai/anthropic
         run: go test -race -count=1 -timeout=60s ./...
@@ -62,6 +63,16 @@ jobs:
       - name: Test GenAI OpenAI
         working-directory: agenttel-go/genai/openai
         run: go test -race -count=1 -timeout=60s ./...
+
+      # Build the submodules exactly as consumers do: against the agenttel-go
+      # release their go.mod pins (no workspace, no replace)
+      - name: GenAI submodules against released agenttel-go
+        working-directory: agenttel-go
+        env:
+          GOWORK: 'off'
+        run: |
+          (cd genai/anthropic && go mod verify && go vet ./... && go test -count=1 ./...)
+          (cd genai/openai && go mod verify && go vet ./... && go test -count=1 ./...)
 
       - name: Vet
         working-directory: agenttel-go

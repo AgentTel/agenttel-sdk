@@ -1,0 +1,10 @@
+// Local development workspace: the GenAI submodules build against this
+// checkout's agenttel-go instead of the released version their go.mod pins.
+// Set GOWORK=off to build them exactly as consumers do.
+go 1.24.0
+
+use (
+	.
+	./genai/anthropic
+	./genai/openai
+)
