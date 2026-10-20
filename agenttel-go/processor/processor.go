@@ -12,8 +12,10 @@ import (
 	"go.agenttel.dev/agenttel-go/anomaly"
 	"go.agenttel.dev/agenttel-go/attributes"
 	"go.agenttel.dev/agenttel-go/baseline"
+	"go.agenttel.dev/agenttel-go/enrich"
 	"go.agenttel.dev/agenttel-go/errorclass"
 	"go.agenttel.dev/agenttel-go/events"
+	"go.agenttel.dev/agenttel-go/operations"
 	"go.agenttel.dev/agenttel-go/slo"
 	"go.agenttel.dev/agenttel-go/topology"
 )
@@ -31,6 +33,7 @@ type AgentTelSpanProcessor struct {
 	errorClassifier  *errorclass.Classifier
 	topologyRegistry *topology.Registry
 	eventEmitter     *events.Emitter
+	decisions        operations.Provider
 	listener         SpanCompletionListener
 }
 
@@ -77,6 +80,11 @@ func WithEventEmitter(e *events.Emitter) Option {
 	return func(sp *AgentTelSpanProcessor) { sp.eventEmitter = e }
 }
 
+// WithDecisions sets the per-operation decision context provider.
+func WithDecisions(d operations.Provider) Option {
+	return func(sp *AgentTelSpanProcessor) { sp.decisions = d }
+}
+
 // WithCompletionListener sets a listener called after each span is processed.
 func WithCompletionListener(l SpanCompletionListener) Option {
 	return func(sp *AgentTelSpanProcessor) { sp.listener = l }
@@ -91,40 +99,23 @@ func New(opts ...Option) *AgentTelSpanProcessor {
 	return p
 }
 
-// OnStart enriches spans with baseline and topology attributes at creation time.
+// OnStart enriches spans with topology, and with baseline and decision
+// attributes when the span name is a configured operation. HTTP server spans
+// are usually named before routing; the framework middleware covers those.
 func (p *AgentTelSpanProcessor) OnStart(_ context.Context, span sdktrace.ReadWriteSpan) {
-	name := span.Name()
-
-	// Enrich with topology
-	if p.topologyRegistry != nil {
-		if team := p.topologyRegistry.Team(); team != "" {
-			span.SetAttributes(attribute.String(attributes.TopologyTeam, team))
-		}
-		if tier := p.topologyRegistry.Tier(); tier != "" {
-			span.SetAttributes(attribute.String(attributes.TopologyTier, tier))
-		}
-		if domain := p.topologyRegistry.Domain(); domain != "" {
-			span.SetAttributes(attribute.String(attributes.TopologyDomain, domain))
-		}
-	}
-
-	// Enrich with baselines
-	if p.baselineProvider != nil {
-		if b, ok := p.baselineProvider.GetBaseline(name); ok {
-			span.SetAttributes(
-				attribute.Float64(attributes.BaselineLatencyP50Ms, b.LatencyP50Ms),
-				attribute.Float64(attributes.BaselineLatencyP99Ms, b.LatencyP99Ms),
-				attribute.Float64(attributes.BaselineErrorRate, b.ErrorRate),
-				attribute.String(attributes.BaselineSource, b.Source),
-				attribute.String(attributes.BaselineUpdatedAt, b.UpdatedAt.Format(time.RFC3339)),
-			)
+	enrich.Topology(span, p.topologyRegistry)
+	if enrich.Operation(span, span.Name(), p.baselineProvider, p.decisions) {
+		if p.baselineProvider != nil {
+			if b, ok := p.baselineProvider.GetBaseline(operations.Normalize(span.Name())); ok {
+				span.SetAttributes(attribute.String(attributes.BaselineUpdatedAt, b.UpdatedAt.Format(time.RFC3339)))
+			}
 		}
 	}
 }
 
 // OnEnd records rolling baselines, performs anomaly detection, and tracks SLOs.
 func (p *AgentTelSpanProcessor) OnEnd(span sdktrace.ReadOnlySpan) {
-	name := span.Name()
+	name := operationName(span)
 	durationMs := float64(span.EndTime().Sub(span.StartTime()).Milliseconds())
 	isError := span.Status().Code == codes.Error
 
@@ -175,4 +166,22 @@ func (p *AgentTelSpanProcessor) Shutdown(_ context.Context) error {
 // ForceFlush flushes pending data.
 func (p *AgentTelSpanProcessor) ForceFlush(_ context.Context) error {
 	return nil
+}
+
+// operationName is "METHOD /route" for HTTP server spans with a route,
+// otherwise the span name.
+func operationName(span sdktrace.ReadOnlySpan) string {
+	var route, method string
+	for _, kv := range span.Attributes() {
+		switch kv.Key {
+		case "http.route":
+			route = kv.Value.AsString()
+		case "http.request.method", "http.method":
+			method = kv.Value.AsString()
+		}
+	}
+	if route != "" && method != "" {
+		return operations.Normalize(method + " " + route)
+	}
+	return operations.Normalize(span.Name())
 }

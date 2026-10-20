@@ -82,5 +82,7 @@ class TopologyRegistry:
         if self._config.topology.domain:
             attrs[attr.TOPOLOGY_DOMAIN] = self._config.topology.domain
         if self._config.topology.on_call_channel:
-            attrs[attr.TOPOLOGY_ONCALL_CHANNEL] = self._config.topology.on_call_channel
+            attrs[attr.TOPOLOGY_ON_CALL_CHANNEL] = self._config.topology.on_call_channel
+        if self._config.topology.repo_url:
+            attrs[attr.TOPOLOGY_REPO_URL] = self._config.topology.repo_url
         return attrs

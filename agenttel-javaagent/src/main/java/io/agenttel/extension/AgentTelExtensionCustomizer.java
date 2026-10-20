@@ -22,6 +22,7 @@ import io.agenttel.core.enrichment.OperationContextRegistry;
 import io.agenttel.core.error.ErrorClassifier;
 import io.agenttel.core.export.AgentTelEnrichingSpanExporter;
 import io.agenttel.core.resource.AgentTelGlobalState;
+import io.agenttel.core.resource.AgentTelResourceProvider;
 import io.agenttel.core.slo.SloTracker;
 import io.agenttel.core.topology.TopologyRegistry;
 import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizer;
@@ -86,11 +87,19 @@ public class AgentTelExtensionCustomizer implements AutoConfigurationCustomizerP
         customizer.addTracerProviderCustomizer(
                 (builder, cfg) -> builder.addSpanProcessor(processor));
 
-        // 6. Register enriching exporter to add computed attributes at export time
+        // 6. Register enriching exporter to add computed attributes at export time.
+        // It also adds baselines and decisions to HTTP server spans: those start with a
+        // provisional name ("POST") and only get their route after routing, so the
+        // processor's onStart lookup misses them.
         customizer.addSpanExporterCustomizer(
                 (exporter, cfg) -> new AgentTelEnrichingSpanExporter(
                         exporter, rollingBaselines, sloTracker, causalityTracker,
-                        anomalyDetector, errorClassifier, topology));
+                        anomalyDetector, errorClassifier, topology)
+                        .withOperationMetadata(baselines, opContexts));
+
+        // 7. Topology on the Resource (independent of ResourceProvider SPI discovery)
+        customizer.addResourceCustomizer(
+                (resource, cfg) -> resource.merge(new AgentTelResourceProvider().createResource(cfg)));
 
         logger.info("AgentTel extension initialized — topology: team=" + topology.getTeam()
                 + ", tier=" + topology.getTier().getValue()
@@ -149,7 +158,7 @@ public class AgentTelExtensionCustomizer implements AutoConfigurationCustomizerP
                                             StaticBaselineProvider baselines,
                                             OperationContextRegistry opContexts) {
         for (var entry : config.getOperations().entrySet()) {
-            String operationName = entry.getKey();
+            String operationName = normalizeOperationName(entry.getKey());
             var op = entry.getValue();
 
             // Resolve profile defaults
@@ -201,5 +210,18 @@ public class AgentTelExtensionCustomizer implements AutoConfigurationCustomizerP
                     retryable, idempotent, runbookUrl,
                     fallbackDesc, escalation, safeToRestart));
         }
+    }
+
+    /**
+     * Strips Spring-style {@code [brackets]} from an operation key. Spring Boot needs
+     * them in map keys containing spaces or slashes; the agent's YAML loader keeps them
+     * literally, so both {@code "[POST /api/payments]"} and {@code "POST /api/payments"} work.
+     */
+    static String normalizeOperationName(String name) {
+        String n = name.trim();
+        if (n.startsWith("[") && n.endsWith("]")) {
+            n = n.substring(1, n.length() - 1).trim();
+        }
+        return n;
     }
 }

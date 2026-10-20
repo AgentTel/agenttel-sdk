@@ -13,7 +13,7 @@ from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanExportProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.semconv.resource import ResourceAttributes
 
 from agenttel import AgentTelEngine
@@ -31,7 +31,7 @@ resource = Resource.create({
 
 exporter = OTLPSpanExporter(endpoint=otel_endpoint, insecure=True)
 provider = TracerProvider(resource=resource)
-provider.add_span_processor(BatchSpanExportProcessor(exporter))
+provider.add_span_processor(BatchSpanProcessor(exporter))
 trace.set_tracer_provider(provider)
 
 tracer = trace.get_tracer("fastapi-payment-service")
@@ -76,7 +76,7 @@ async def create_payment() -> dict:
 @app.get("/api/payments/{payment_id}")
 async def get_payment(payment_id: str) -> dict:
     """Retrieve a payment by ID."""
-    with tracer.start_as_current_span("GET /api/payments/{id}"):
+    with tracer.start_as_current_span("GET /api/payments/{payment_id}"):
         # Simulate read latency (10-25ms)
         await asyncio.sleep((10 + random.random() * 15) / 1000)
 

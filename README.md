@@ -219,21 +219,21 @@ AgentTel supports multiple integration paths — pick what fits your stack:
     <dependency>
         <groupId>dev.agenttel</groupId>
         <artifactId>agenttel-spring-boot-starter</artifactId>
-        <version>0.3.0-alpha</version>
+        <version>0.4.0-alpha</version>
     </dependency>
 
     <!-- Optional: GenAI instrumentation -->
     <dependency>
         <groupId>dev.agenttel</groupId>
         <artifactId>agenttel-genai</artifactId>
-        <version>0.3.0-alpha</version>
+        <version>0.4.0-alpha</version>
     </dependency>
 
     <!-- Optional: Agent interface layer (MCP server, incident context, remediation) -->
     <dependency>
         <groupId>dev.agenttel</groupId>
         <artifactId>agenttel-agent</artifactId>
-        <version>0.3.0-alpha</version>
+        <version>0.4.0-alpha</version>
     </dependency>
 </dependencies>
 ```
@@ -244,13 +244,13 @@ AgentTel supports multiple integration paths — pick what fits your stack:
 // build.gradle.kts
 dependencies {
     // Core: span enrichment, baselines, anomaly detection, SLO tracking
-    implementation("dev.agenttel:agenttel-spring-boot-starter:0.3.0-alpha")
+    implementation("dev.agenttel:agenttel-spring-boot-starter:0.4.0-alpha")
 
     // Optional: GenAI instrumentation
-    implementation("dev.agenttel:agenttel-genai:0.3.0-alpha")
+    implementation("dev.agenttel:agenttel-genai:0.4.0-alpha")
 
     // Optional: Agent interface layer (MCP server, incident context, remediation)
-    implementation("dev.agenttel:agenttel-agent:0.3.0-alpha")
+    implementation("dev.agenttel:agenttel-agent:0.4.0-alpha")
 }
 ```
 
@@ -438,7 +438,7 @@ app = FastAPI()
 instrument_fastapi(app)  # One-line integration
 ```
 
-All spans are now enriched with topology, baselines, anomaly detection, and SLO tracking — identical attributes to the JVM SDK.
+`instrument_fastapi()` attaches the AgentTel span processor to your existing OpenTelemetry `TracerProvider` (or creates one if none is set), instruments the app with `opentelemetry-instrumentation-fastapi`, and enriches each HTTP server span with topology, baselines and decision attributes for its `METHOD /route` — identical attributes to the JVM SDK.
 
 ### Backend: Go
 
@@ -468,19 +468,30 @@ agenttel:
 
 ```go
 import (
+    "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+    sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
     agenttel "go.agenttel.dev/agenttel-go"
     agmw "go.agenttel.dev/agenttel-go/middleware/http"
 )
 
-cfg, _ := agenttel.LoadConfigFile("agenttel.yml")
-engine := agenttel.NewEngineBuilder(cfg).Build()
+engine, err := agenttel.New().WithConfigFile("agenttel.yml").Build()
+if err != nil {
+    log.Fatal(err)
+}
 
-// Wrap your handler with AgentTel middleware
-handler := agmw.Middleware(mux,
-    agmw.WithBaselineProvider(engine.BaselineProvider()),
-    agmw.WithTopology(engine.TopologyRegistry()),
+tp := sdktrace.NewTracerProvider(
+    sdktrace.WithResource(engine.Resource()),          // topology on the resource
+    sdktrace.WithSpanProcessor(engine.SpanProcessor()),
+    sdktrace.WithBatcher(exporter),
 )
+otel.SetTracerProvider(tp)
+
+// otelhttp creates the server span; AgentTel enriches it for the matched "METHOD /route"
+handler := otelhttp.NewHandler(agmw.Middleware(agmw.WithEngine(engine))(mux), "server")
 ```
+
+Requires `go.opentelemetry.io/otel/sdk` v1.39.0+.
 
 Also supports **Gin** (`middleware/gin`) and **gRPC** (`middleware/grpc`) out of the box. See [Go Quickstart](docs/getting-started/go-quickstart.md) for details.
 
@@ -489,7 +500,7 @@ Also supports **Gin** (`middleware/gin`) and **gRPC** (`middleware/grpc`) out of
 #### 1. Install
 
 ```bash
-npm install @agenttel/node @opentelemetry/api @opentelemetry/sdk-trace-node
+npm install @agenttel/node @opentelemetry/api @opentelemetry/sdk-trace-node @opentelemetry/instrumentation-http
 ```
 
 #### 2. Configure
@@ -511,19 +522,22 @@ agenttel:
 #### 3. Instrument
 
 ```typescript
-import { AgentTelEngineBuilder, expressMiddleware, loadConfig } from '@agenttel/node';
+import { AgentTelEngine, expressMiddleware } from '@agenttel/node';
 
-const config = loadConfig('agenttel.yml');
-const engine = new AgentTelEngineBuilder()
-  .withTeam(config.topology?.team ?? 'my-team')
-  .withTier(config.topology?.tier ?? 'critical')
-  .build();
+const engine = AgentTelEngine.fromConfigFile('agenttel.yml');
 
-app.use(expressMiddleware({
-  baselineProvider: engine.baselineProvider,
-  topology: engine.topologyRegistry,
-}));
+// Register the processor with your tracer provider (alongside your exporter)
+const provider = new NodeTracerProvider({
+  resource: new Resource(engine.resourceAttributes()),
+  spanProcessors: [engine.spanProcessor, new BatchSpanProcessor(exporter)],
+});
+provider.register();
+registerInstrumentations({ instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()] });
+
+app.use(expressMiddleware({ engine }));  // topology, baselines and decisions on the server span
 ```
+
+Works under plain `node` as ESM (`import`) or CommonJS (`require`), Node.js 18+.
 
 Also supports **Fastify** (`fastifyPlugin`). See [Node.js Quickstart](docs/getting-started/nodejs-quickstart.md) for details.
 
@@ -686,19 +700,19 @@ Each example includes a README with step-by-step instructions and curl commands 
 
 | Component | Supported Versions |
 |-----------|--------------------|
-| Go | 1.22+ |
-| OpenTelemetry SDK | 1.33.0+ |
-| net/http | Standard library |
-| Gin | 1.9+ (optional) |
-| gRPC | 1.60+ (optional) |
+| Go | 1.24+ |
+| OpenTelemetry SDK (`go.opentelemetry.io/otel/sdk`) | 1.39.0+ |
+| net/http | Standard library (+ `otelhttp` for server spans) |
+| Gin | 1.11+ with `otelgin` (optional) |
+| gRPC | 1.79+ (optional) |
 
 ### Backend (Node.js)
 
 | Component | Supported Versions |
 |-----------|--------------------|
-| Node.js | 18+ |
+| Node.js | 18+ (ESM and CommonJS) |
 | TypeScript | 5.0+ |
-| OpenTelemetry SDK | 1.30.0+ |
+| OpenTelemetry JS SDK | 1.25.0+ (1.x) |
 | Express | 4.x / 5.x (optional) |
 | Fastify | 4.x+ (optional) |
 
@@ -738,20 +752,20 @@ AgentTel publishes standard Maven artifacts to Maven Central. Your application c
 <dependency>
     <groupId>dev.agenttel</groupId>
     <artifactId>agenttel-spring-boot-starter</artifactId>
-    <version>0.3.0-alpha</version>
+    <version>0.4.0-alpha</version>
 </dependency>
 ```
 
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-implementation("dev.agenttel:agenttel-spring-boot-starter:0.3.0-alpha")
+implementation("dev.agenttel:agenttel-spring-boot-starter:0.4.0-alpha")
 ```
 
 ### Gradle (Groovy DSL)
 
 ```groovy
-implementation 'dev.agenttel:agenttel-spring-boot-starter:0.3.0-alpha'
+implementation 'dev.agenttel:agenttel-spring-boot-starter:0.4.0-alpha'
 ```
 
 ### All Available Artifacts
@@ -814,7 +828,7 @@ See [FAQ.md](FAQ.md) for frequently asked questions about code changes, performa
 ./gradlew test
 ./gradlew :agenttel-agent:build
 
-# Go (requires Go 1.22+)
+# Go (requires Go 1.24+)
 cd agenttel-go && go test -race ./...
 
 # Node.js (requires Node.js 18+)

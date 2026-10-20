@@ -1,47 +1,13 @@
+import { engine, sdk } from './telemetry.js'; // must be the first import
 import express from 'express';
 import { trace } from '@opentelemetry/api';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import {
-  AgentTelEngineBuilder,
-  expressMiddleware,
-  loadConfig,
-} from '@agenttel/node';
-
-// Load AgentTel config
-const config = loadConfig('agenttel.yml');
-
-// Set up OTel
-const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318';
-const exporter = new OTLPTraceExporter({ url: `${endpoint}/v1/traces` });
-
-const sdk = new NodeSDK({
-  resource: new Resource({
-    [ATTR_SERVICE_NAME]: config.topology?.serviceName ?? 'express-payment-service',
-    [ATTR_SERVICE_VERSION]: '1.0.0',
-  }),
-  traceExporter: exporter,
-});
-
-sdk.start();
-
-// Build AgentTel engine
-const engine = new AgentTelEngineBuilder()
-  .withTeam(config.topology?.team ?? 'payments-platform')
-  .withTier(config.topology?.tier ?? 'critical')
-  .withDomain(config.topology?.domain ?? 'commerce')
-  .build();
+import { expressMiddleware } from '@agenttel/node';
 
 const app = express();
 app.use(express.json());
 
-// Apply AgentTel middleware
-app.use(expressMiddleware({
-  baselineProvider: engine.baselineProvider,
-  topology: engine.topologyRegistry,
-}));
+// Enrich HTTP server spans with topology, baselines and decisions (retryable, runbook, ...)
+app.use(expressMiddleware({ engine }));
 
 // Routes
 app.post('/api/payments', (_req, res) => {

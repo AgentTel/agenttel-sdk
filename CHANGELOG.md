@@ -4,6 +4,62 @@ All notable changes to AgentTel are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0-alpha] - Unreleased
+
+Every SDK now reads the same `agenttel.yml` and puts the same attributes on HTTP server spans. Package versions: Maven `0.4.0-alpha`, npm `0.4.0-alpha.0`, PyPI `0.4.0a1`, Go `agenttel-go/v0.4.0-alpha`.
+
+### Shared configuration format (Python, Node.js, Go)
+
+All SDKs now accept the Spring Boot dialect:
+
+- `agenttel:` root, kebab-case keys (`on-call-channel`, `expected-latency-p50`, `runbook-url`)
+- `operations` is a map keyed by `"METHOD /route"`. Spring-style `"[POST /api/payments]"` and bare keys are equivalent, and `:id` and `{id}` path parameters match each other
+- latencies are duration strings (`45ms`, `1.5s`, `2m`) or plain numbers of milliseconds
+- `profiles` hold shared decision defaults, and an operation's explicit values override its profile
+- Each SDK's previous dialect (no root, snake_case or camelCase keys, Node's `operations` list) still loads and logs a deprecation warning
+
+### Python (`agenttel`)
+
+- **Fixed:** FastAPI server spans now get baselines and decisions. The middleware resolves the route template and enriches the active server span, so it no longer depends on the span name at `on_start`. `opentelemetry-instrumentation-fastapi` names that span `POST` at `on_start` and renames it after routing.
+- **Fixed:** `instrument_fastapi()` reuses an already registered SDK `TracerProvider` instead of creating a second one. Topology is merged into its resource. It also calls `FastAPIInstrumentor.instrument_app()` when the app isn't instrumented yet.
+- **Fixed:** decision attributes now use the `attributes.json` names (`agenttel.decision.*`, previously `agenttel.operation.*`), and on-call is now `agenttel.topology.on_call_channel` (previously `oncall_channel`). The old Python constant names remain as aliases.
+- **Fixed:** `ConsumptionPattern.ASYNC` value is `async` (was `async_`); added `EscalationLevel.AUTO_RESOLVE` (new default, as on the JVM).
+- **Fixed:** `examples/fastapi-example` imported the non-existent `BatchSpanExportProcessor` and used enum values the loader rejects.
+- `AgentTelMiddleware` is now a pure ASGI middleware; `auto_configure()` delegates to `instrument_fastapi()`.
+- **Breaking (emitted attribute names):** the Python SDK now matches `attributes.json` (`scripts/validate-attributes.sh` passes for all three SDKs). Dashboards and queries on the old keys need updating:
+  - Agentic spans from `AgentTracer`, its scopes, the orchestrations and `GuardrailRecorder` use `agenttel.agentic.*`, as in Go and Node. Previously they used top-level namespaces: `agenttel.agent.name` became `agenttel.agentic.agent.name`, `agenttel.step.tool_name` became `agenttel.agentic.step.tool_name`, and likewise for `invocation`, `task`, `orchestration`, `handoff`, `cost`, `quality`, `guardrail`, `memory`, `human`, `code`, `eval`, `retrieval` and `conversation`. Renamed keys: `orchestration.stage_count` → `orchestration.total_stages`, `invocation.error_source` → `agentic.error.source`, `retrieval.relevance_score` → `retrieval.relevance_score_avg`, `conversation.role` → `conversation.speaker_role`, `agenttel.reranker.{input,output}_count` → `agenttel.agentic.reranker.{input,output}_documents`. The eval-loop iteration count is now `agenttel.agentic.step.iteration` (was `agenttel.quality.iterations`).
+  - GenAI spans: `gen_ai.usage.reasoning_tokens` → `agenttel.genai.reasoning_tokens`, `gen_ai.usage.cached_tokens` → `agenttel.genai.cached_read_tokens`. The duplicate `gen_ai.retrieval.document_count` on LangChain retriever spans is gone (`agenttel.genai.rag_source_count` carries the same value).
+  - No longer emitted, because the span already records them: `agenttel.invocation.duration_ms`, `agenttel.step.tool_duration_ms` and `agenttel.code.duration_ms` (the span's duration) and `agenttel.invocation.error_message` (now the span status description; `AgentInvocation.fail()` also sets the span status to `ERROR`).
+  - Old constant names stay as deprecated aliases that point at the canonical keys (e.g. `agentic_attributes.AGENT_NAME == AGENTIC_AGENT_NAME`, `attributes.ANOMALY_Z_SCORE == ANOMALY_LATENCY_Z_SCORE`, `genai.attributes.USAGE_CACHED_TOKENS == CACHED_READ_TOKENS`). New code should use the `AGENTIC_*` names, which match Go and Node.
+  - Removed constants that were never emitted and have no canonical equivalent: `attributes.DEPENDENCY_*`, `CONSUMER_*` (use `TOPOLOGY_DEPENDENCIES` / `TOPOLOGY_CONSUMERS`), `TOPOLOGY_SERVICE_VERSION`, `ANOMALY_BASELINE_MEAN/STDDEV`, `SLO_TYPE`, `SLO_ALERT_LEVEL`, `ERROR_IS_TRANSIENT`, `CAUSALITY_DEPENDENCY_CHAIN`, `DEPLOYMENT_ENVIRONMENT`, `GENAI_RAG_ENABLED`; `agentic_attributes.TASK_PRIORITY`, `MEMORY_QUERY`, `MEMORY_HIT`; `genai.attributes.REQUEST_STOP_SEQUENCES`, `REQUEST_FREQUENCY_PENALTY`, `REQUEST_PRESENCE_PENALTY`, `EMBEDDING_*`, `GUARDRAIL_ACTION`.
+  - Keys the Python SDK still emits but `attributes.json` does not define now live in `agenttel.extension_attributes`: `agenttel.baseline.latency_p95_ms`, `agenttel.operation.profile`, `gen_ai.usage.total_tokens`, `gen_ai.retrieval.source`, `agenttel.genai.rag_enabled`, plus agentic extras renamed into the agentic namespace (`agenttel.agentic.step.description`, `step.tool_input`, `step.tool_output`, `handoff.context_keys`, `human.feedback`, `code.output_size`, `eval.max_score`, `quality.confidence`, `guardrail.input_violation`, `guardrail.output_violation`).
+- **Added:** the remaining canonical constants (`cause.*`, `severity.*`, `correlation.*`, `circuit_breaker.*`, `session.*`, `agent.id/role/session_id`, new `baseline.*`, `deployment.*`, `genai.*` and event names, and all `agenttel.agentic.*` keys), named as in Go and Node.
+- **Fixed:** `with tracer.invoke(...)` raised `RuntimeError: generator didn't stop` on exit. `AgentInvocation.complete()` now sets `invocation.status` to `completed` (it stayed `running`), and `fail()` sets it to `failed`.
+
+### Node.js (`@agenttel/node`)
+
+- **Fixed:** the package loads under plain Node.js 18/20/22 as ESM (`import`) and CommonJS (`require`). Relative imports use `.js` extensions (enforced by building with `NodeNext`), and `dist/cjs/package.json` marks the CommonJS build.
+- **Added:** Express and Fastify middleware set decision attributes (`retryable`, `idempotent`, `runbook_url`, `escalation_level`, `safe_to_restart`, `fallback_*`). Pass `{ engine }` to set topology, baselines and decisions in one go. Express re-checks the matched route template before the response ends, and Fastify records `http.route`.
+- **Added:** `AgentTelEngine.fromConfigFile()`, `builder().withConfigFile()`, `engine.operations` (decision registry), `engine.resourceAttributes()`, `engine.topologyRegistry` alias, `parseConfig`, `normalizeOperationName`, `parseDurationMs`, `enrichOperation`.
+- **Fixed:** the express/fastify examples now register `engine.spanProcessor` and HTTP instrumentation.
+- Tests: real Express and Fastify servers with OTel instrumentation against the built package (`npm test`), and `npm run test:pack`, which installs the packed tarball into a fresh project.
+
+### Go (`go.agenttel.dev/agenttel-go`)
+
+- **Fixed:** YAML `operations` become static baselines and decision context in `Builder.Build()` (previously only `WithStaticBaselines` registered baselines).
+- **Added:** `operations` package (`Registry`, `Decision`, `Normalize`, `ParseDurationMs`), `enrich` package, `Engine.Operations`, `Engine.Resource()` / `Engine.ResourceAttributes()`, `ParseConfig`, `LoadConfigFile` (alias of `LoadConfig`), and `WithEngine` / `WithDecisions` options for the net/http, Gin and gRPC middleware.
+- **Added:** net/http middleware sets decision attributes and, for Go 1.22+ `ServeMux` patterns, records `http.route` and matches `GET /items/{id}` after routing.
+- **Fixed:** `examples/go-service-example` and `examples/gin-example` compile and run against the real API (`agenttel.New().WithConfigFile(...).Build()`, `engine.SpanProcessor()`, `otelhttp` / `otelgin`).
+- **Docs:** minimum versions are Go 1.24 and `go.opentelemetry.io/otel/sdk` v1.39.0 (previously documented as 1.22 / 1.33.0).
+- **Breaking (config struct only):** YAML tags on `AgentTelConfig` are now kebab-case. camelCase files still load, with a warning.
+
+### JVM
+
+- **Fixed (javaagent):** HTTP server spans now get baselines and decisions. Previously `-javaagent` runs added no `agenttel.*` attributes to Tomcat/servlet server spans: those start as `POST` and only get their route name later, so the processor's start-time lookup missed them. The Spring Boot starter has a route-aware interceptor, but the agent had nothing equivalent. `AgentTelEnrichingSpanExporter.withOperationMetadata(...)` now adds static baselines and decisions at export time, resolved from the final span name or `METHOD http.route`. The javaagent enables it.
+- **Fixed (javaagent):** `"[POST /api/payments]"` keys work in the agent's `agenttel.yml` (brackets were kept literally). Topology is now added to the Resource through a resource customizer, so it no longer depends on ResourceProvider SPI discovery.
+- **Fixed (build):** jar file names and javadoc titles used a hard-coded `0.2.0-alpha` project version. The project version now comes from `VERSION_NAME`; Maven coordinates were already correct.
+- Added `JavaagentIntegrationTest`: it runs a plain Spring Boot app with `-javaagent:<built agent jar>`, sends one request and asserts the exported server span and resource.
+
 ## [0.3.0-alpha] - 2026-03-20
 
 ### Added

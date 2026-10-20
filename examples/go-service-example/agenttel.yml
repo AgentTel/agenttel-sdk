@@ -12,7 +12,7 @@ agenttel:
       criticality: required
       timeout-ms: 5000
     - name: stripe-api
-      type: rest_api
+      type: external_api
       criticality: required
       fallback: "Return cached pricing"
 

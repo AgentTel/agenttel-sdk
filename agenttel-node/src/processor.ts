@@ -9,6 +9,8 @@ import { ErrorClassifier } from './error/classifier.js';
 import { SLOTracker } from './slo/tracker.js';
 import { TopologyRegistry } from './topology/registry.js';
 import { AgentTelEventEmitter } from './events/emitter.js';
+import { enrichOperation, enrichTopology } from './enrich.js';
+import { normalizeOperationName, type DecisionProvider } from './operations.js';
 
 export interface ProcessorOptions {
   topology?: TopologyRegistry;
@@ -18,6 +20,8 @@ export interface ProcessorOptions {
   sloTracker?: SLOTracker;
   errorClassifier?: ErrorClassifier;
   eventEmitter?: AgentTelEventEmitter;
+  /** Decision context per operation (retryable, runbook, escalation, ...). */
+  operations?: DecisionProvider;
 }
 
 /** OTel SpanProcessor that enriches spans with AgentTel metadata. */
@@ -29,6 +33,7 @@ export class AgentTelSpanProcessor implements SpanProcessor {
   private readonly sloTracker?: SLOTracker;
   private readonly errorClassifier?: ErrorClassifier;
   private readonly eventEmitter?: AgentTelEventEmitter;
+  private readonly operations?: DecisionProvider;
 
   constructor(options: ProcessorOptions = {}) {
     this.topology = options.topology;
@@ -38,14 +43,13 @@ export class AgentTelSpanProcessor implements SpanProcessor {
     this.sloTracker = options.sloTracker;
     this.errorClassifier = options.errorClassifier;
     this.eventEmitter = options.eventEmitter;
+    this.operations = options.operations;
   }
 
   onStart(span: Span, _parentContext: Context): void {
     // Enrich with topology metadata
     if (this.topology) {
-      if (this.topology.team) span.setAttribute(attrs.TOPOLOGY_TEAM, this.topology.team);
-      if (this.topology.tier) span.setAttribute(attrs.TOPOLOGY_TIER, this.topology.tier);
-      if (this.topology.domain) span.setAttribute(attrs.TOPOLOGY_DOMAIN, this.topology.domain);
+      enrichTopology(span, this.topology);
 
       const deps = this.topology.dependencies();
       if (deps.length > 0) {
@@ -57,21 +61,16 @@ export class AgentTelSpanProcessor implements SpanProcessor {
       }
     }
 
-    // Enrich with baseline data
-    const opName = (span as unknown as { name: string }).name;
-    if (this.baselineProvider && opName) {
-      const baseline = this.baselineProvider.getBaseline(opName);
-      if (baseline) {
-        span.setAttribute(attrs.BASELINE_LATENCY_P50_MS, baseline.latencyP50Ms);
-        span.setAttribute(attrs.BASELINE_LATENCY_P99_MS, baseline.latencyP99Ms);
-        span.setAttribute(attrs.BASELINE_ERROR_RATE, baseline.errorRate);
-        span.setAttribute(attrs.BASELINE_SOURCE, baseline.source);
-      }
+    // Enrich spans already named after a configured operation. HTTP server spans are
+    // named before routing (e.g. "POST"); the framework middleware handles those.
+    const opName = (span as unknown as { name?: string }).name;
+    if (opName) {
+      enrichOperation(span, opName, { baselineProvider: this.baselineProvider, decisions: this.operations });
     }
   }
 
   onEnd(span: ReadableSpan): void {
-    const opName = span.name;
+    const opName = operationNameOf(span);
     const durationMs = (span.endTime[0] - span.startTime[0]) * 1000 +
       (span.endTime[1] - span.startTime[1]) / 1e6;
     const isError = span.status?.code === 2; // StatusCode.ERROR
@@ -131,4 +130,14 @@ export class AgentTelSpanProcessor implements SpanProcessor {
   async forceFlush(): Promise<void> {
     // no-op
   }
+}
+
+/** "METHOD /route" for HTTP server spans with a route, otherwise the span name. */
+function operationNameOf(span: ReadableSpan): string {
+  const route = span.attributes?.['http.route'];
+  const method = span.attributes?.['http.request.method'] ?? span.attributes?.['http.method'];
+  if (typeof route === 'string' && typeof method === 'string') {
+    return normalizeOperationName(`${method} ${route}`);
+  }
+  return normalizeOperationName(span.name);
 }

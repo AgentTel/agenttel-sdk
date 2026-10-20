@@ -85,3 +85,92 @@ func TestEnvOverrides(t *testing.T) {
 		t.Errorf("expected tier=internal, got %s", cfg.Topology.Tier)
 	}
 }
+
+func TestSharedConfigFormat(t *testing.T) {
+	cfg, err := ParseConfig([]byte(`
+agenttel:
+  topology:
+    team: payments
+    on-call-channel: "#oncall"
+  profiles:
+    critical-write:
+      retryable: false
+      runbook-url: https://profile
+      escalation-level: page_oncall
+  operations:
+    "[POST /api/payments]":
+      profile: critical-write
+      expected-latency-p50: 45ms
+      expected-latency-p99: 1.5s
+      expected-error-rate: 0.001
+      retryable: true
+    GET /orders/:id:
+      expected-latency-p50: 15
+  baselines:
+    rolling-window-size: 500
+  anomaly-detection:
+    z-score-threshold: 2.5
+  slo:
+    availability:
+      target: 0.999
+      type: availability
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Topology.OnCallChannel != "#oncall" || cfg.Baselines.RollingWindowSize != 500 || cfg.AnomalyDetection.ZScoreThreshold != 2.5 {
+		t.Errorf("unexpected config: %+v", cfg)
+	}
+	if _, ok := cfg.Operations["POST /api/payments"]; !ok {
+		t.Fatalf("bracketed key not normalized: %v", cfg.Operations)
+	}
+	if cfg.Operations["GET /orders/{id}"].ExpectedLatencyP50 != "15" {
+		t.Errorf("numeric latency not accepted: %+v", cfg.Operations)
+	}
+
+	engine, err := New().WithConfig(cfg).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := engine.BaselineProvider.GetBaseline("POST /api/payments")
+	if !ok || b.LatencyP50Ms != 45 || b.LatencyP99Ms != 1500 || b.ErrorRate != 0.001 {
+		t.Errorf("static baseline from config = %+v, %v", b, ok)
+	}
+	if b, ok := engine.BaselineProvider.GetBaseline("GET /orders/{id}"); !ok || b.LatencyP50Ms != 15 {
+		t.Errorf("GET baseline = %+v, %v", b, ok)
+	}
+	d, ok := engine.Operations.GetDecision("POST /api/payments")
+	if !ok || !d.Retryable || d.RunbookURL != "https://profile" || d.EscalationLevel != "page_oncall" || !d.SafeToRestart {
+		t.Errorf("decision = %+v, %v", d, ok)
+	}
+	if d, _ := engine.Operations.GetDecision("GET /orders/{id}"); d.EscalationLevel != "auto_resolve" {
+		t.Errorf("default escalation = %q", d.EscalationLevel)
+	}
+}
+
+func TestLegacyNodeOperationsList(t *testing.T) {
+	cfg, err := ParseConfig([]byte(`
+topology:
+  on_call_channel: "#c"
+operations:
+  - name: POST /p
+    baseline_latency_p50_ms: 45
+    baseline_latency_p99_ms: 200
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Topology.OnCallChannel != "#c" {
+		t.Errorf("on_call_channel = %q", cfg.Topology.OnCallChannel)
+	}
+	op := cfg.Operations["POST /p"]
+	if op.ExpectedLatencyP50 != "45" || op.ExpectedLatencyP99 != "200" {
+		t.Errorf("legacy operation = %+v", op)
+	}
+}
+
+func TestInvalidLatencyIsAnError(t *testing.T) {
+	if _, err := ParseConfig([]byte("agenttel:\n  operations:\n    GET /x:\n      expected-latency-p50: fast\n")); err == nil {
+		t.Error("expected error for invalid latency")
+	}
+}

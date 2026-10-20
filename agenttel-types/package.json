@@ -1,6 +1,6 @@
 {
   "name": "@agenttel/types",
-  "version": "0.3.0-alpha.0",
+  "version": "0.4.0-alpha.0",
   "description": "Shared types, enums, and attribute constants for AgentTel SDKs",
   "type": "module",
   "main": "./dist/cjs/index.js",

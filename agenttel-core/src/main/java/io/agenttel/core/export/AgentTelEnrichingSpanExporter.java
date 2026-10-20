@@ -7,9 +7,11 @@ import io.agenttel.core.anomaly.AnomalyDetector;
 import io.agenttel.core.anomaly.AnomalyResult;
 import io.agenttel.core.anomaly.IncidentPattern;
 import io.agenttel.core.anomaly.PatternMatcher;
+import io.agenttel.core.baseline.BaselineProvider;
 import io.agenttel.core.baseline.RollingBaselineProvider;
 import io.agenttel.core.baseline.RollingWindow;
 import io.agenttel.core.causality.CausalityTracker;
+import io.agenttel.core.enrichment.OperationContextRegistry;
 import io.agenttel.core.error.ErrorClassifier;
 import io.agenttel.core.slo.SloTracker;
 import io.agenttel.core.topology.TopologyRegistry;
@@ -37,6 +39,10 @@ import java.util.concurrent.TimeUnit;
  *   <li>{@code agenttel.cause.*} — causal analysis</li>
  *   <li>{@code agenttel.severity.*} — severity assessment</li>
  *   <li>{@code agenttel.baseline.sample_count/confidence} — baseline reliability</li>
+ *   <li>{@code agenttel.baseline.*} and {@code agenttel.decision.*} for configured operations,
+ *       when {@link #withOperationMetadata} is set and the span did not get them at start.
+ *       HTTP server spans start with a provisional name (e.g. {@code POST}) and only get
+ *       their route ({@code POST /api/payments}, {@code http.route}) after routing.</li>
  * </ul>
  */
 public class AgentTelEnrichingSpanExporter implements SpanExporter {
@@ -48,6 +54,8 @@ public class AgentTelEnrichingSpanExporter implements SpanExporter {
     private final AnomalyDetector anomalyDetector;
     private final ErrorClassifier errorClassifier;
     private final TopologyRegistry topology;
+    private BaselineProvider staticBaselines;
+    private OperationContextRegistry operationContexts;
 
     public AgentTelEnrichingSpanExporter(SpanExporter delegate,
                                           RollingBaselineProvider rollingBaselines,
@@ -63,6 +71,17 @@ public class AgentTelEnrichingSpanExporter implements SpanExporter {
         this.anomalyDetector = anomalyDetector;
         this.errorClassifier = errorClassifier;
         this.topology = topology;
+    }
+
+    /**
+     * Also add static baseline and decision attributes at export time, resolved from the
+     * final span name or {@code METHOD http.route}, for spans that missed them at start.
+     */
+    public AgentTelEnrichingSpanExporter withOperationMetadata(BaselineProvider staticBaselines,
+                                                               OperationContextRegistry operationContexts) {
+        this.staticBaselines = staticBaselines;
+        this.operationContexts = operationContexts;
+        return this;
     }
 
     @Override
@@ -90,6 +109,9 @@ public class AgentTelEnrichingSpanExporter implements SpanExporter {
         double latencyMs = (double) (span.getEndEpochNanos() - span.getStartEpochNanos())
                 / TimeUnit.MILLISECONDS.toNanos(1);
         boolean isError = span.getStatus().getStatusCode() == StatusCode.ERROR;
+
+        // --- Static baselines + decisions missed at span start ---
+        enrichOperationMetadata(extra, span);
 
         // --- Anomaly detection ---
         enrichAnomaly(extra, operationName, latencyMs, isError);
@@ -119,6 +141,55 @@ public class AgentTelEnrichingSpanExporter implements SpanExporter {
         }
 
         return new EnrichedSpanData(span, extra);
+    }
+
+    private void enrichOperationMetadata(Map<AttributeKey<?>, Object> extra, SpanData span) {
+        if (staticBaselines == null && operationContexts == null) return;
+        var attrs = span.getAttributes();
+        boolean needBaseline = staticBaselines != null
+                && attrs.get(AgentTelAttributes.BASELINE_SOURCE) == null;
+        boolean needDecision = operationContexts != null
+                && attrs.get(AgentTelAttributes.DECISION_RETRYABLE) == null;
+        if (!needBaseline && !needDecision) return;
+
+        List<String> candidates = new ArrayList<>(2);
+        candidates.add(span.getName());
+        String route = attrs.get(AttributeKey.stringKey("http.route"));
+        String method = attrs.get(AttributeKey.stringKey("http.request.method"));
+        if (method == null) method = attrs.get(AttributeKey.stringKey("http.method"));
+        if (route != null && method != null) candidates.add(method + " " + route);
+
+        for (String name : candidates) {
+            if (needBaseline) {
+                var baseline = staticBaselines.getBaseline(name);
+                if (baseline.isPresent()) {
+                    var b = baseline.get();
+                    if (b.latencyP50Ms() > 0) extra.put(AgentTelAttributes.BASELINE_LATENCY_P50_MS, b.latencyP50Ms());
+                    if (b.latencyP99Ms() > 0) extra.put(AgentTelAttributes.BASELINE_LATENCY_P99_MS, b.latencyP99Ms());
+                    if (b.errorRate() >= 0) extra.put(AgentTelAttributes.BASELINE_ERROR_RATE, b.errorRate());
+                    extra.put(AgentTelAttributes.BASELINE_SOURCE, b.source().getValue());
+                    needBaseline = false;
+                }
+            }
+            if (needDecision) {
+                var context = operationContexts.getContext(name);
+                if (context.isPresent()) {
+                    var ctx = context.get();
+                    extra.put(AgentTelAttributes.DECISION_RETRYABLE, ctx.isRetryable());
+                    extra.put(AgentTelAttributes.DECISION_IDEMPOTENT, ctx.isIdempotent());
+                    if (!ctx.getRunbookUrl().isEmpty()) {
+                        extra.put(AgentTelAttributes.DECISION_RUNBOOK_URL, ctx.getRunbookUrl());
+                    }
+                    if (!ctx.getFallbackDescription().isEmpty()) {
+                        extra.put(AgentTelAttributes.DECISION_FALLBACK_AVAILABLE, true);
+                        extra.put(AgentTelAttributes.DECISION_FALLBACK_DESCRIPTION, ctx.getFallbackDescription());
+                    }
+                    extra.put(AgentTelAttributes.DECISION_ESCALATION_LEVEL, ctx.getEscalationLevel().getValue());
+                    extra.put(AgentTelAttributes.DECISION_SAFE_TO_RESTART, ctx.isSafeToRestart());
+                    needDecision = false;
+                }
+            }
+        }
     }
 
     private void enrichAnomaly(Map<AttributeKey<?>, Object> extra,

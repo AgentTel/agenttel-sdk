@@ -95,7 +95,11 @@ jobs:
 
       - name: Run tests
         working-directory: agenttel-node
-        run: npx vitest run
+        run: npm test   # pretest builds dist/, which the integration test runs under plain node
+
+      - name: Packed tarball smoke test (ESM import, CJS require, Express/Fastify)
+        working-directory: agenttel-node
+        run: node scripts/pack-smoke.mjs
 
   python-test:
     runs-on: ubuntu-latest
@@ -118,7 +122,7 @@ jobs:
       - name: Lint
         working-directory: agenttel-python
         run: |
-          pip install ruff
+          pip install ruff==0.17.1
           ruff check src/ tests/
 
       - name: Run tests

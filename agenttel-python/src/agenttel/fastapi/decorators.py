@@ -8,6 +8,7 @@ from typing import Any, Callable
 from opentelemetry import trace
 
 from agenttel import attributes as attr
+from agenttel import extension_attributes as ext
 
 
 def agent_operation(
@@ -50,15 +51,15 @@ def agent_operation(
             return func(*args, **kwargs)
 
         def _set_attributes(span: Any) -> None:
-            span.set_attribute(attr.OPERATION_RETRYABLE, retryable)
-            span.set_attribute(attr.OPERATION_IDEMPOTENT, idempotent)
-            span.set_attribute(attr.OPERATION_SAFE_TO_RESTART, safe_to_restart)
+            span.set_attribute(attr.DECISION_RETRYABLE, retryable)
+            span.set_attribute(attr.DECISION_IDEMPOTENT, idempotent)
+            span.set_attribute(attr.DECISION_SAFE_TO_RESTART, safe_to_restart)
             if runbook_url:
-                span.set_attribute(attr.OPERATION_RUNBOOK_URL, runbook_url)
+                span.set_attribute(attr.DECISION_RUNBOOK_URL, runbook_url)
             if escalation_level:
-                span.set_attribute(attr.OPERATION_ESCALATION_LEVEL, escalation_level)
+                span.set_attribute(attr.DECISION_ESCALATION_LEVEL, escalation_level)
             if profile:
-                span.set_attribute(attr.OPERATION_PROFILE, profile)
+                span.set_attribute(ext.OPERATION_PROFILE, profile)
 
             # Set baseline from decorator parameters
             p50 = _parse_latency(expected_latency_p50)

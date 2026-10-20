@@ -3,6 +3,7 @@ package baseline
 
 import (
 	"go.agenttel.dev/agenttel-go/models"
+	"go.agenttel.dev/agenttel-go/operations"
 )
 
 // Provider returns baseline data for a named operation.
@@ -19,13 +20,13 @@ type StaticProvider struct {
 func NewStaticProvider(baselines map[string]models.OperationBaseline) *StaticProvider {
 	m := make(map[string]models.OperationBaseline, len(baselines))
 	for k, v := range baselines {
-		m[k] = v
+		m[operations.Normalize(k)] = v
 	}
 	return &StaticProvider{baselines: m}
 }
 
 // GetBaseline returns the baseline for the given operation, if configured.
 func (s *StaticProvider) GetBaseline(operationName string) (models.OperationBaseline, bool) {
-	b, ok := s.baselines[operationName]
+	b, ok := s.baselines[operations.Normalize(operationName)]
 	return b, ok
 }

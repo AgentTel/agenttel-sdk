@@ -11,16 +11,28 @@
 //	    Build()
 //
 //	tp := sdktrace.NewTracerProvider(
+//	    sdktrace.WithResource(engine.Resource()),
 //	    sdktrace.WithSpanProcessor(engine.SpanProcessor()),
+//	    sdktrace.WithBatcher(exporter),
 //	)
+//
+//	handler := otelhttp.NewHandler(agmw.Middleware(agmw.WithEngine(engine))(mux), "server")
 package agenttel
 
 import (
+	"fmt"
+	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/resource"
+
 	"go.agenttel.dev/agenttel-go/anomaly"
+	"go.agenttel.dev/agenttel-go/attributes"
 	"go.agenttel.dev/agenttel-go/baseline"
 	"go.agenttel.dev/agenttel-go/errorclass"
 	"go.agenttel.dev/agenttel-go/events"
 	"go.agenttel.dev/agenttel-go/models"
+	"go.agenttel.dev/agenttel-go/operations"
 	"go.agenttel.dev/agenttel-go/processor"
 	"go.agenttel.dev/agenttel-go/slo"
 	"go.agenttel.dev/agenttel-go/topology"
@@ -37,7 +49,41 @@ type Engine struct {
 	SLOTracker       *slo.Tracker
 	ErrorClassifier  *errorclass.Classifier
 	EventEmitter     *events.Emitter
-	spanProcessor    *processor.AgentTelSpanProcessor
+	// Operations holds per-operation decision context (retryable, runbook, escalation, ...).
+	Operations    *operations.Registry
+	spanProcessor *processor.AgentTelSpanProcessor
+}
+
+// ResourceAttributes returns service.name (if configured) and the topology as
+// OTel resource attributes.
+func (e *Engine) ResourceAttributes() []attribute.KeyValue {
+	var kv []attribute.KeyValue
+	if e.Config.Topology.ServiceName != "" {
+		kv = append(kv, attribute.String("service.name", e.Config.Topology.ServiceName))
+	}
+	t := e.TopologyRegistry
+	for k, v := range map[string]string{
+		attributes.TopologyTeam:          t.Team(),
+		attributes.TopologyTier:          t.Tier(),
+		attributes.TopologyDomain:        t.Domain(),
+		attributes.TopologyOnCallChannel: t.OnCallChannel(),
+		attributes.TopologyRepoURL:       t.RepoURL(),
+	} {
+		if v != "" {
+			kv = append(kv, attribute.String(k, v))
+		}
+	}
+	return kv
+}
+
+// Resource returns the default OTel resource (host, process, OTEL_* env)
+// merged with ResourceAttributes, for sdktrace.WithResource.
+func (e *Engine) Resource() *resource.Resource {
+	r, err := resource.Merge(resource.Default(), resource.NewSchemaless(e.ResourceAttributes()...))
+	if err != nil {
+		return resource.NewSchemaless(e.ResourceAttributes()...)
+	}
+	return r
 }
 
 // SpanProcessor returns the OTel SpanProcessor for use with TracerProvider.
@@ -155,10 +201,20 @@ func (b *Builder) Build() (*Engine, error) {
 		cfg.Baselines.RollingMinSamples,
 	)
 
+	// Static baselines and decisions from config operations. Baselines passed
+	// to WithStaticBaselines take precedence over the config file.
+	staticBaselines, decisions, err := buildOperations(cfg)
+	if err != nil {
+		return nil, err
+	}
+	for name, bl := range b.staticBaselines {
+		staticBaselines[operations.Normalize(name)] = bl
+	}
+
 	var baseProvider baseline.Provider
-	if len(b.staticBaselines) > 0 {
+	if len(staticBaselines) > 0 {
 		baseProvider = baseline.NewCompositeProvider(
-			baseline.NewStaticProvider(b.staticBaselines),
+			baseline.NewStaticProvider(staticBaselines),
 			rollingProvider,
 		)
 	} else {
@@ -171,6 +227,14 @@ func (b *Builder) Build() (*Engine, error) {
 
 	// SLO
 	sloTracker := slo.NewTracker()
+	for name, s := range cfg.SLO {
+		sloTracker.Register(models.SLODefinition{
+			Name:          name,
+			OperationName: s.Operation,
+			Type:          s.Type,
+			Target:        s.Target,
+		})
+	}
 	for _, def := range b.sloDefinitions {
 		sloTracker.Register(def)
 	}
@@ -191,6 +255,7 @@ func (b *Builder) Build() (*Engine, error) {
 		processor.WithErrorClassifier(errorClassifier),
 		processor.WithTopology(topoReg),
 		processor.WithEventEmitter(eventEmitter),
+		processor.WithDecisions(decisions),
 	)
 
 	return &Engine{
@@ -203,6 +268,67 @@ func (b *Builder) Build() (*Engine, error) {
 		SLOTracker:       sloTracker,
 		ErrorClassifier:  errorClassifier,
 		EventEmitter:     eventEmitter,
+		Operations:       decisions,
 		spanProcessor:    sp,
 	}, nil
+}
+
+// buildOperations turns config operations into static baselines and decision
+// context: explicit operation values > referenced profile > defaults.
+func buildOperations(cfg AgentTelConfig) (map[string]models.OperationBaseline, *operations.Registry, error) {
+	baselines := make(map[string]models.OperationBaseline)
+	decisions := operations.NewRegistry()
+	for rawName, op := range cfg.Operations {
+		name := operations.Normalize(rawName)
+
+		p50, hasP50, err := operations.ParseDurationMs(op.ExpectedLatencyP50)
+		if err != nil {
+			return nil, nil, fmt.Errorf("operation %q: %w", rawName, err)
+		}
+		p99, hasP99, err := operations.ParseDurationMs(op.ExpectedLatencyP99)
+		if err != nil {
+			return nil, nil, fmt.Errorf("operation %q: %w", rawName, err)
+		}
+		if hasP50 || hasP99 || op.ExpectedErrorRate > 0 {
+			baselines[name] = models.OperationBaseline{
+				OperationName: name,
+				LatencyP50Ms:  p50,
+				LatencyP99Ms:  p99,
+				ErrorRate:     op.ExpectedErrorRate,
+				Source:        "static",
+				UpdatedAt:     time.Now(),
+			}
+		}
+
+		profile := cfg.Profiles[op.Profile]
+		decisions.Register(name, operations.Decision{
+			Retryable:           pickBool(op.Retryable, profile.Retryable, false),
+			Idempotent:          pickBool(op.Idempotent, profile.Idempotent, false),
+			RunbookURL:          pickString(op.RunbookURL, profile.RunbookURL, ""),
+			FallbackDescription: pickString(op.FallbackDescription, profile.FallbackDescription, ""),
+			EscalationLevel:     pickString(op.EscalationLevel, profile.EscalationLevel, "auto_resolve"),
+			SafeToRestart:       pickBool(op.SafeToRestart, profile.SafeToRestart, true),
+		})
+	}
+	return baselines, decisions, nil
+}
+
+func pickBool(op, profile *bool, def bool) bool {
+	if op != nil {
+		return *op
+	}
+	if profile != nil {
+		return *profile
+	}
+	return def
+}
+
+func pickString(op, profile, def string) string {
+	if op != "" {
+		return op
+	}
+	if profile != "" {
+		return profile
+	}
+	return def
 }

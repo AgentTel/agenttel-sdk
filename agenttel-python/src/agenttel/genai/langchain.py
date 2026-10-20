@@ -136,7 +136,6 @@ class AgentTelLangChainHandler:
             source=source,
             rag_enabled=True,
         )
-        span.set_attribute(genai_attr.RAG_ENABLED, True)
         self._spans[run_id] = span
 
     def on_retriever_end(
@@ -150,7 +149,6 @@ class AgentTelLangChainHandler:
         span = self._spans.pop(run_id, None)
         if span:
             span.set_attribute(genai_attr.RAG_SOURCE_COUNT, len(documents))
-            span.set_attribute(genai_attr.RETRIEVAL_DOCUMENT_COUNT, len(documents))
             span.end()
 
     def on_retriever_error(

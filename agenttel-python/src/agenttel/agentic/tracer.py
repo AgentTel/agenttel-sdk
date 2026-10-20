@@ -62,16 +62,16 @@ class AgentTracer:
         )
 
         # Set agent identity attributes
-        span.set_attribute(aa.AGENT_NAME, self._name)
-        span.set_attribute(aa.AGENT_TYPE, self._type.value)
+        span.set_attribute(aa.AGENTIC_AGENT_NAME, self._name)
+        span.set_attribute(aa.AGENTIC_AGENT_TYPE, self._type.value)
         if self._framework:
-            span.set_attribute(aa.AGENT_FRAMEWORK, self._framework)
+            span.set_attribute(aa.AGENTIC_AGENT_FRAMEWORK, self._framework)
         if self._version:
-            span.set_attribute(aa.AGENT_VERSION, self._version)
+            span.set_attribute(aa.AGENTIC_AGENT_VERSION, self._version)
 
         # Set invocation attributes
-        span.set_attribute(aa.INVOCATION_ID, invocation_id)
-        span.set_attribute(aa.INVOCATION_GOAL, goal)
+        span.set_attribute(aa.AGENTIC_INVOCATION_ID, invocation_id)
+        span.set_attribute(aa.AGENTIC_INVOCATION_GOAL, goal)
 
         return AgentInvocation(
             span=span,
@@ -95,8 +95,8 @@ class AgentTracer:
             f"agent.orchestrate {pattern.value}",
             kind=trace.SpanKind.INTERNAL,
         )
-        span.set_attribute(aa.ORCHESTRATION_PATTERN, pattern.value)
-        span.set_attribute(aa.AGENT_NAME, self._name)
+        span.set_attribute(aa.AGENTIC_ORCHESTRATION_PATTERN, pattern.value)
+        span.set_attribute(aa.AGENTIC_AGENT_NAME, self._name)
 
         return Orchestration(
             span=span,
@@ -115,9 +115,9 @@ class AgentTracer:
             f"agent.memory.{operation}",
             kind=trace.SpanKind.INTERNAL,
         )
-        span.set_attribute(aa.MEMORY_OPERATION, operation)
-        span.set_attribute(aa.MEMORY_STORE_TYPE, store_type)
-        span.set_attribute(aa.MEMORY_ITEMS, items)
+        span.set_attribute(aa.AGENTIC_MEMORY_OPERATION, operation)
+        span.set_attribute(aa.AGENTIC_MEMORY_STORE_TYPE, store_type)
+        span.set_attribute(aa.AGENTIC_MEMORY_ITEMS, items)
         return span
 
     @property

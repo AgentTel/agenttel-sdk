@@ -6,12 +6,13 @@ from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from agenttel import attributes as attr
+from agenttel import extension_attributes as ext
 from agenttel.anomaly.detector import AnomalyDetector
 from agenttel.baseline.composite import CompositeBaselineProvider
 from agenttel.baseline.rolling import RollingBaselineProvider
 from agenttel.causality.tracker import CausalityTracker
-from agenttel.config import AgentTelConfig
-from agenttel.enums import AlertLevel
+from agenttel.config import AgentTelConfig, normalize_operation_name
+from agenttel.enums import AlertLevel, EscalationLevel
 from agenttel.error.classifier import ErrorClassifier
 from agenttel.events import AgentTelEventEmitter
 from agenttel.models import OperationBaseline, OperationContext
@@ -49,28 +50,36 @@ class AgentTelSpanProcessor(SpanProcessor):
         self._event_emitter = event_emitter
 
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None:
-        """Enrich span on start with baseline and context attributes."""
-        if not span.is_recording():
-            return
-
-        operation_name = self._resolve_operation_name(span)
-        if not operation_name:
+        """Enrich span on start with topology, decision and baseline attributes."""
+        if not self._config.enabled or not span.is_recording():
             return
 
         # Attach topology attributes
-        topo_attrs = self._topology.get_topology_attributes()
-        for key, value in topo_attrs.items():
+        for key, value in self._topology.get_topology_attributes().items():
             span.set_attribute(key, value)
 
-        # Attach operation context
-        op_context = self._resolve_operation_context(operation_name)
+        operation_name = self._resolve_operation_name(span)
+        if operation_name:
+            self.enrich_operation(span, operation_name)
+
+    def enrich_operation(self, span: Span, operation_name: str) -> bool:
+        """Set decision and baseline attributes for ``operation_name`` on ``span``.
+
+        Framework integrations call this once the route template is known (HTTP
+        server spans are usually named before routing, e.g. just "POST").
+        Returns True if the operation is configured or has a baseline.
+        """
+        operation_name = normalize_operation_name(operation_name)
+        found = False
+        op_context = self.resolve_operation_context(operation_name)
         if op_context:
             self._set_operation_context(span, op_context)
-
-        # Attach baseline attributes
+            found = True
         baseline = self._baseline_provider.get_baseline(operation_name)
         if baseline:
             self._set_baseline_attributes(span, baseline)
+            found = True
+        return found
 
     def on_end(self, span: ReadableSpan) -> None:
         """Process span on end: update rolling baselines, detect anomalies, check SLO."""
@@ -127,7 +136,8 @@ class AgentTelSpanProcessor(SpanProcessor):
 
     def _resolve_operation_name(self, span: Span) -> str | None:
         """Resolve operation name from span."""
-        return span.name if hasattr(span, "name") else None
+        name = getattr(span, "name", None)
+        return normalize_operation_name(name) if name else None
 
     def _resolve_operation_name_from_readable(self, span: ReadableSpan) -> str | None:
         """Resolve operation name from a readable span."""
@@ -135,42 +145,48 @@ class AgentTelSpanProcessor(SpanProcessor):
         route = span.attributes.get("http.route") if span.attributes else None
         method = span.attributes.get("http.request.method") or span.attributes.get("http.method") if span.attributes else None
         if route and method:
-            return f"[{method} {route}]"
-        return span.name
+            return normalize_operation_name(f"{method} {route}")
+        return normalize_operation_name(span.name) if span.name else None
 
-    def _resolve_operation_context(self, operation_name: str) -> OperationContext | None:
-        """Resolve operation context from config."""
-        op_config = self._config.operations.get(operation_name)
+    def resolve_operation_context(self, operation_name: str) -> OperationContext | None:
+        """Resolve decision context: explicit operation values > profile > defaults."""
+        op_config = self._config.get_operation(operation_name)
         if op_config is None:
             return None
 
-        # Check if profile is specified
         profile = None
         if op_config.profile and op_config.profile in self._config.profiles:
             profile = self._config.profiles[op_config.profile]
 
+        def pick(field: str, default: object) -> object:
+            value = getattr(op_config, field)
+            if value is not None:
+                return value
+            if profile is not None and getattr(profile, field) is not None:
+                return getattr(profile, field)
+            return default
+
         return OperationContext(
-            retryable=op_config.retryable if op_config.retryable is not None
-            else (profile.retryable if profile else False),
-            idempotent=op_config.idempotent if op_config.idempotent is not None
-            else (profile.idempotent if profile else False),
-            runbook_url=op_config.runbook_url,
-            escalation_level=profile.escalation_level if profile else None,
-            safe_to_restart=profile.safe_to_restart if profile else True,
-            fallback_description=profile.fallback_description if profile else None,
+            retryable=pick("retryable", False),
+            idempotent=pick("idempotent", False),
+            runbook_url=pick("runbook_url", None),
+            escalation_level=pick("escalation_level", EscalationLevel.AUTO_RESOLVE),
+            safe_to_restart=pick("safe_to_restart", True),
+            fallback_description=pick("fallback_description", None),
         )
 
     def _set_operation_context(self, span: Span, ctx: OperationContext) -> None:
         """Set operation context attributes on span."""
-        span.set_attribute(attr.OPERATION_RETRYABLE, ctx.retryable)
-        span.set_attribute(attr.OPERATION_IDEMPOTENT, ctx.idempotent)
-        span.set_attribute(attr.OPERATION_SAFE_TO_RESTART, ctx.safe_to_restart)
+        span.set_attribute(attr.DECISION_RETRYABLE, ctx.retryable)
+        span.set_attribute(attr.DECISION_IDEMPOTENT, ctx.idempotent)
+        span.set_attribute(attr.DECISION_SAFE_TO_RESTART, ctx.safe_to_restart)
+        span.set_attribute(attr.DECISION_FALLBACK_AVAILABLE, bool(ctx.fallback_description))
         if ctx.runbook_url:
-            span.set_attribute(attr.OPERATION_RUNBOOK_URL, ctx.runbook_url)
+            span.set_attribute(attr.DECISION_RUNBOOK_URL, ctx.runbook_url)
         if ctx.escalation_level:
-            span.set_attribute(attr.OPERATION_ESCALATION_LEVEL, ctx.escalation_level.value)
+            span.set_attribute(attr.DECISION_ESCALATION_LEVEL, ctx.escalation_level.value)
         if ctx.fallback_description:
-            span.set_attribute(attr.OPERATION_FALLBACK_DESCRIPTION, ctx.fallback_description)
+            span.set_attribute(attr.DECISION_FALLBACK_DESCRIPTION, ctx.fallback_description)
 
     def _set_baseline_attributes(self, span: Span, baseline: OperationBaseline) -> None:
         """Set baseline attributes on span."""
@@ -181,7 +197,7 @@ class AgentTelSpanProcessor(SpanProcessor):
         span.set_attribute(attr.BASELINE_CONFIDENCE, baseline.confidence.value)
         span.set_attribute(attr.BASELINE_SAMPLE_COUNT, baseline.sample_count)
         if baseline.latency_p95_ms > 0:
-            span.set_attribute(attr.BASELINE_LATENCY_P95_MS, baseline.latency_p95_ms)
+            span.set_attribute(ext.BASELINE_LATENCY_P95_MS, baseline.latency_p95_ms)
 
     def _calculate_latency_ms(self, span: ReadableSpan) -> float:
         """Calculate span latency in milliseconds."""

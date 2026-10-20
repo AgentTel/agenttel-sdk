@@ -27,7 +27,7 @@ extra["bedrockSdkVersion"] = "2.30.0"
 
 allprojects {
     group = "dev.agenttel"
-    version = "0.2.0-alpha"
+    version = rootProject.property("VERSION_NAME") as String
 
     repositories {
         mavenCentral()

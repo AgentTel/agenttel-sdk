@@ -11,12 +11,11 @@ import (
 	"os/signal"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 
 	agenttel "go.agenttel.dev/agenttel-go"
@@ -27,54 +26,41 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	// Load AgentTel config
-	cfg, err := agenttel.LoadConfigFile("agenttel.yml")
+	// Build the AgentTel engine from agenttel.yml: topology, baselines and
+	// decision context (retryable, runbook, escalation) per "METHOD /route".
+	engine, err := agenttel.New().WithConfigFile("agenttel.yml").Build()
 	if err != nil {
-		log.Printf("Warning: could not load agenttel.yml: %v (using defaults)", err)
-		cfg = agenttel.DefaultConfig()
+		log.Fatalf("Failed to build AgentTel engine: %v", err)
 	}
 
-	// Set up OTel exporter
-	endpoint := envOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318")
-	exporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpoint(endpoint),
-		otlptracehttp.WithInsecure(),
-	)
+	// Exporter: OTLP/HTTP by default, stdout with OTEL_TRACES_EXPORTER=console.
+	var exporter sdktrace.SpanExporter
+	if os.Getenv("OTEL_TRACES_EXPORTER") == "console" {
+		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
+	} else {
+		exporter, err = otlptracehttp.New(ctx,
+			otlptracehttp.WithEndpoint(envOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318")),
+			otlptracehttp.WithInsecure(),
+		)
+	}
 	if err != nil {
-		log.Fatalf("Failed to create OTLP exporter: %v", err)
+		log.Fatalf("Failed to create exporter: %v", err)
 	}
 
-	// Build AgentTel engine
-	engine := agenttel.NewEngineBuilder(cfg).Build()
-
-	// Create TracerProvider with AgentTel processor
-	res, _ := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(cfg.Topology.ServiceName),
-			semconv.ServiceVersion("1.0.0"),
-			attribute.String("agenttel.topology.team", cfg.Topology.Team),
-			attribute.String("agenttel.topology.tier", cfg.Topology.Tier),
-		),
-	)
-
+	// TracerProvider with topology on the resource and the AgentTel processor.
 	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(engine.Resource()),
+		sdktrace.WithSpanProcessor(engine.SpanProcessor()),
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSpanProcessor(engine.Processor()),
-		sdktrace.WithResource(res),
 	)
-	defer tp.Shutdown(ctx)
+	defer tp.Shutdown(context.Background())
 	otel.SetTracerProvider(tp)
-
-	tracer := otel.Tracer("go-payment-service")
 
 	// Set up HTTP routes with AgentTel middleware
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/payments", func(w http.ResponseWriter, r *http.Request) {
-		_, span := tracer.Start(r.Context(), "POST /api/payments", trace.WithSpanKind(trace.SpanKindServer))
-		defer span.End()
+		span := trace.SpanFromContext(r.Context()) // the otelhttp server span
 
 		// Simulate processing
 		time.Sleep(time.Duration(30+rand.Intn(40)) * time.Millisecond)
@@ -95,9 +81,6 @@ func main() {
 	})
 
 	mux.HandleFunc("GET /api/payments/{id}", func(w http.ResponseWriter, r *http.Request) {
-		_, span := tracer.Start(r.Context(), "GET /api/payments/{id}", trace.WithSpanKind(trace.SpanKindServer))
-		defer span.End()
-
 		id := r.PathValue("id")
 		time.Sleep(time.Duration(10+rand.Intn(15)) * time.Millisecond)
 
@@ -114,10 +97,10 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
-	// Wrap with AgentTel middleware
-	handler := agmw.Middleware(mux,
-		agmw.WithBaselineProvider(engine.BaselineProvider()),
-		agmw.WithTopology(engine.TopologyRegistry()),
+	// otelhttp creates the server span; AgentTel enriches it with topology,
+	// baselines and decisions for the matched "METHOD /route".
+	handler := otelhttp.NewHandler(agmw.Middleware(agmw.WithEngine(engine))(mux), "server",
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string { return r.Method }),
 	)
 
 	port := envOrDefault("PORT", "8080")

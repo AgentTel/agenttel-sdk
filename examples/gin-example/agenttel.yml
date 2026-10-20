@@ -8,12 +8,12 @@ agenttel:
 
   dependencies:
     - name: payment-gateway
-      type: rest_api
-      criticality: critical
+      type: external_api
+      criticality: required
       timeout-ms: 5000
     - name: customer-db
       type: database
-      criticality: critical
+      criticality: required
       timeout-ms: 3000
 
   consumers:

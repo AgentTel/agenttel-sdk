@@ -7,6 +7,7 @@ from typing import Any
 from opentelemetry import trace
 
 from agenttel.genai import attributes as genai_attr
+from agenttel import extension_attributes as ext
 from agenttel.genai.cost import ModelCostCalculator
 
 
@@ -76,10 +77,10 @@ class GenAiSpanBuilder:
             kind=trace.SpanKind.CLIENT,
         )
         span.set_attribute(genai_attr.OPERATION_NAME, "retrieval")
-        span.set_attribute(genai_attr.RETRIEVAL_SOURCE, source)
+        span.set_attribute(ext.GENAI_RETRIEVAL_SOURCE, source)
 
         if "rag_enabled" in kwargs:
-            span.set_attribute(genai_attr.RAG_ENABLED, kwargs["rag_enabled"])
+            span.set_attribute(ext.GENAI_RAG_ENABLED, kwargs["rag_enabled"])
         return span
 
     def end_span_with_response(
@@ -107,12 +108,12 @@ class GenAiSpanBuilder:
         span.set_attribute(genai_attr.USAGE_INPUT_TOKENS, input_tokens)
         span.set_attribute(genai_attr.USAGE_OUTPUT_TOKENS, output_tokens)
         total = input_tokens + output_tokens
-        span.set_attribute(genai_attr.USAGE_TOTAL_TOKENS, total)
+        span.set_attribute(ext.GENAI_USAGE_TOTAL_TOKENS, total)
 
         if reasoning_tokens > 0:
-            span.set_attribute(genai_attr.USAGE_REASONING_TOKENS, reasoning_tokens)
+            span.set_attribute(genai_attr.REASONING_TOKENS, reasoning_tokens)
         if cached_tokens > 0:
-            span.set_attribute(genai_attr.USAGE_CACHED_TOKENS, cached_tokens)
+            span.set_attribute(genai_attr.CACHED_READ_TOKENS, cached_tokens)
 
         # Calculate and set cost
         if model and total > 0:

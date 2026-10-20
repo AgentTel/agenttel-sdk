@@ -5,10 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from opentelemetry import trace
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-
 from agenttel.config import AgentTelConfig
 from agenttel.engine import AgentTelEngine
 
@@ -20,8 +16,8 @@ def auto_configure(
 ) -> AgentTelEngine:
     """Auto-configure AgentTel for a FastAPI application.
 
-    Loads agenttel.yml, configures all components, registers the
-    AgentTelSpanProcessor, and sets up topology as OTel resource attributes.
+    Equivalent to :func:`agenttel.fastapi.instrument_fastapi`; ``service_name``
+    is used as ``service.name`` if AgentTel has to create the TracerProvider.
 
     Args:
         app: FastAPI application instance.
@@ -31,33 +27,9 @@ def auto_configure(
     Returns:
         Configured AgentTelEngine.
     """
+    from agenttel.fastapi.middleware import instrument_fastapi
+
     config = AgentTelConfig.from_yaml(config_path)
-    engine = AgentTelEngine(config)
-
-    # Build resource attributes
-    resource_attrs: dict[str, str] = {}
     if service_name:
-        resource_attrs["service.name"] = service_name
-    resource_attrs.update(engine.topology.get_topology_attributes())
-
-    resource = Resource.create(resource_attrs)
-    provider = TracerProvider(resource=resource)
-
-    # Register AgentTel processor
-    provider.add_span_processor(engine.processor)
-    trace.set_tracer_provider(provider)
-
-    # Add middleware
-    from agenttel.fastapi.middleware import AgentTelMiddleware
-
-    app.add_middleware(AgentTelMiddleware, engine=engine)
-
-    # Emit deployment event
-    if config.deployment.emit_on_startup:
-        engine.event_emitter.emit_deployment(
-            version=config.deployment.version,
-            environment=config.deployment.environment,
-            deployment_id=config.deployment.deployment_id,
-        )
-
-    return engine
+        config.topology.service_name = service_name
+    return instrument_fastapi(app, engine=AgentTelEngine(config))
