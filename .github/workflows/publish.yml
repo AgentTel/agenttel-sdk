@@ -3,12 +3,20 @@ name: Publish
 on:
   release:
     types: [ published ]
+  # Re-publish npm only, e.g. when the release run's npm job failed.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Release tag (or commit) whose code is published to npm'
+        required: true
+        default: 'v0.4.0-alpha'
 
 permissions:
   contents: read
 
 jobs:
   publish-java:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
 
     steps:
@@ -35,37 +43,46 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_SIGNING_PASSPHRASE }}
 
+  # npm Trusted Publishing: npm authenticates this workflow via GitHub OIDC, so no
+  # NPM_TOKEN secret is needed. Each package's npmjs.com settings must list
+  # AgentTel/agenttel-sdk + publish.yml as its trusted publisher. Published versions
+  # get provenance attestations automatically.
   publish-npm:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Upgrade npm (trusted publishing needs npm >= 11.5.1)
+        run: npm install -g npm@11 && npm --version
+
+      # --tag latest is explicit: npm 11 requires a tag for prerelease versions.
       - name: Build and publish @agenttel/types
         working-directory: agenttel-types
         run: |
           npm ci
           npx tsc
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --access public --tag latest
 
       - name: Build and publish @agenttel/node
         working-directory: agenttel-node
         run: |
           npm ci
-          npx tsc
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --access public --tag latest   # prepack builds dist/ (ESM + CJS)
 
   publish-python:
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
 
     steps:
