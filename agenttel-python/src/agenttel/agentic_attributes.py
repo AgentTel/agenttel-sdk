@@ -117,6 +117,7 @@ AGENTIC_ERROR_CATEGORY = "agenttel.agentic.error.category"
 AGENTIC_ERROR_RETRYABLE = "agenttel.agentic.error.retryable"
 
 # Capability
+AGENTIC_CAPABILITY_TOOLS = "agenttel.agentic.capability.tools"
 AGENTIC_CAPABILITY_TOOL_COUNT = "agenttel.agentic.capability.tool_count"
 AGENTIC_CAPABILITY_SYSTEM_PROMPT_HASH = "agenttel.agentic.capability.system_prompt_hash"
 

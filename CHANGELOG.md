@@ -4,6 +4,16 @@ All notable changes to AgentTel are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Attribute schema
+
+- `attributes.json` (schema 1.1.0) records, for every attribute, its `stability`, `kind` (declared, derived, hybrid, observed), `level` (resource, span, event) and `upstream` mapping to OpenTelemetry semantic conventions. See `docs/reference/attribute-schema.md`.
+- Event names moved from the attribute namespaces to a top-level `events` map.
+- Schema types and descriptions now match what the SDKs emit: `baseline.confidence` is a `low|medium|high` string, `topology.dependencies`/`consumers` are JSON arrays, `decision.escalation_level` lists its real values, `agentic.orchestration.stage` and `genai.time_to_first_token_ms` are ints, `gen_ai.response.finish_reasons` is `string[]`. No SDK changes what it emits.
+- Added `agenttel.agentic.capability.tools` (already emitted by the JVM) to the schema and to the Go, Node.js and Python constants.
+- `scripts/validate-attributes.sh` now checks the JVM SDK, including attribute types, and validates the upstream metadata.
+
 ## [0.4.0-alpha] - 2026-10-20
 
 Every SDK now reads the same `agenttel.yml` and puts the same attributes on HTTP server spans. Package versions: Maven `0.4.0-alpha`, npm `0.4.0-alpha.0`, PyPI `0.4.0a1`, Go `agenttel-go/v0.4.0-alpha`.

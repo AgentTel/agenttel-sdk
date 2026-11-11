@@ -110,5 +110,6 @@ export const AGENTIC_ERROR_CATEGORY = 'agenttel.agentic.error.category';
 export const AGENTIC_ERROR_RETRYABLE = 'agenttel.agentic.error.retryable';
 
 // Agentic capability
+export const AGENTIC_CAPABILITY_TOOLS = 'agenttel.agentic.capability.tools';
 export const AGENTIC_CAPABILITY_TOOL_COUNT = 'agenttel.agentic.capability.tool_count';
 export const AGENTIC_CAPABILITY_SYSTEM_PROMPT_HASH = 'agenttel.agentic.capability.system_prompt_hash';
