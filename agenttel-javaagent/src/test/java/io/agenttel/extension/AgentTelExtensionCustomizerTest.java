@@ -61,6 +61,14 @@ class AgentTelExtensionCustomizerTest {
 
         // Verify anomaly detection config
         assertThat(config.getAnomalyDetection().getZScoreThreshold()).isEqualTo(2.5);
+
+        // Verify attribute namespace
+        assertThat(config.getAttributes().getNamespace()).isEqualTo("both");
+    }
+
+    @Test
+    void attributeNamespaceDefaultsToLegacy() {
+        assertThat(new AgentTelConfig().getAttributes().getNamespace()).isEqualTo("legacy");
     }
 
     @Test

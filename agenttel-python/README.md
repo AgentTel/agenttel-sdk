@@ -58,6 +58,9 @@ agenttel:
   anomaly-detection:
     enabled: true
     z-score-threshold: 3.0
+  attributes:
+    namespace: legacy   # legacy (agenttel.*) | standard (reliability.*/OTel names) | both;
+                        # spans are mapped only via BatchSpanProcessor(engine.wrap_exporter(exporter))
 ```
 
 ### 2. Instrument Your App

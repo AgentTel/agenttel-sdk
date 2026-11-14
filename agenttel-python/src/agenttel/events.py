@@ -8,14 +8,21 @@ from typing import Any
 
 from opentelemetry import trace
 
+from agenttel.export.namespace import AttributeNamespaceMapper
+
 logger = logging.getLogger("agenttel.events")
 
 
 class AgentTelEventEmitter:
     """Emits structured events as OTel log records."""
 
-    def __init__(self, service_name: str = "") -> None:
+    def __init__(
+        self,
+        service_name: str = "",
+        namespace_mapper: AttributeNamespaceMapper | None = None,
+    ) -> None:
         self._service_name = service_name
+        self._mapper = namespace_mapper or AttributeNamespaceMapper()
         self._logger = logging.getLogger(f"agenttel.events.{service_name}")
 
     def emit(
@@ -24,8 +31,12 @@ class AgentTelEventEmitter:
         attributes: dict[str, Any] | None = None,
         severity: str = "INFO",
     ) -> None:
-        """Emit a structured event."""
-        attrs = {
+        """Emit a structured event.
+
+        The event name and attributes follow ``agenttel.attributes.namespace``.
+        """
+        event_name = self._mapper.map_event_name(event_name)
+        attrs: dict[str, Any] = {
             "event.name": event_name,
             "event.domain": "agenttel",
             "service.name": self._service_name,
@@ -33,6 +44,7 @@ class AgentTelEventEmitter:
         }
         if attributes:
             attrs.update(attributes)
+        attrs = dict(self._mapper.map_attributes(attrs) or {})
 
         # Attach to current span if available
         span = trace.get_current_span()

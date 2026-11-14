@@ -7,6 +7,7 @@ from pathlib import Path
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SpanExporter
 
 from agenttel.anomaly.detector import AnomalyDetector
 from agenttel.baseline.composite import CompositeBaselineProvider
@@ -17,6 +18,10 @@ from agenttel.config import AgentTelConfig
 from agenttel.enums import BaselineSource
 from agenttel.error.classifier import ErrorClassifier
 from agenttel.events import AgentTelEventEmitter
+from agenttel.export.namespace import (
+    AttributeNamespaceMapper,
+    NamespaceMappingSpanExporter,
+)
 from agenttel.models import OperationBaseline, SloDefinition
 from agenttel.processor import AgentTelSpanProcessor
 from agenttel.slo.tracker import SloTracker
@@ -45,7 +50,8 @@ class AgentTelEngine:
         self._slo_tracker = SloTracker()
         self._error_classifier = ErrorClassifier()
         self._causality_tracker = CausalityTracker()
-        self._event_emitter = AgentTelEventEmitter()
+        self._namespace_mapper = AttributeNamespaceMapper(config.attributes.namespace)
+        self._event_emitter = AgentTelEventEmitter(namespace_mapper=self._namespace_mapper)
 
         # Register dependencies in causality tracker
         for dep in config.dependencies:
@@ -116,6 +122,20 @@ class AgentTelEngine:
     def event_emitter(self) -> AgentTelEventEmitter:
         return self._event_emitter
 
+    @property
+    def namespace_mapper(self) -> AttributeNamespaceMapper:
+        return self._namespace_mapper
+
+    def wrap_exporter(self, exporter: SpanExporter) -> SpanExporter:
+        """Wrap ``exporter`` so exported spans follow ``attributes.namespace``.
+
+        Span attributes, span events and the span resource are mapped only for
+        exporters passed through this method, e.g.
+        ``provider.add_span_processor(BatchSpanProcessor(engine.wrap_exporter(OTLPSpanExporter())))``.
+        Returns ``exporter`` unchanged in ``legacy`` mode.
+        """
+        return NamespaceMappingSpanExporter.wrap(exporter, self._namespace_mapper)
+
     def install(self, tracer_provider: TracerProvider | None = None) -> TracerProvider:
         """Install the AgentTel span processor into the OTel SDK.
 
@@ -123,13 +143,19 @@ class AgentTelEngine:
         ``TracerProvider`` if the application already set one. Only when no SDK
         provider exists is a new one created (with topology on its resource) and
         registered globally. Installing twice is a no-op.
+
+        Topology resource attributes and AgentTel events follow
+        ``attributes.namespace`` automatically, but span attributes are mapped only
+        for exporters passed through :meth:`wrap_exporter`, e.g.
+        ``BatchSpanProcessor(engine.wrap_exporter(OTLPSpanExporter()))``. ``install``
+        does not modify exporters already registered on the provider.
         """
         if tracer_provider is None:
             current = trace.get_tracer_provider()
             if isinstance(current, TracerProvider):
                 tracer_provider = current
             else:
-                attrs: dict[str, str] = dict(self._topology.get_topology_attributes())
+                attrs: dict[str, str] = dict(self._topology.get_resource_attributes())
                 if self._config.topology.service_name:
                     attrs.setdefault("service.name", self._config.topology.service_name)
                 tracer_provider = TracerProvider(resource=Resource.create(attrs))
@@ -161,7 +187,7 @@ class AgentTelEngine:
             return
         missing = {
             k: v
-            for k, v in self._topology.get_topology_attributes().items()
+            for k, v in self._topology.get_resource_attributes().items()
             if k not in resource.attributes
         }
         if not missing:

@@ -100,6 +100,17 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 1c. Generated namespace maps must match attributes.json
+# ─────────────────────────────────────────────────────────────────────────────
+echo -e "\n${BOLD}Generated namespace maps${RESET}"
+if GENERATOR_OUTPUT=$(python3 "$SCRIPT_DIR/generate-namespace-maps.py" --check 2>&1); then
+  pass "Namespace maps in every SDK match attributes.json"
+else
+  fail "$GENERATOR_OUTPUT"
+  EXIT_CODE=1
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 2. Extract attributes from each SDK
 # ─────────────────────────────────────────────────────────────────────────────
 

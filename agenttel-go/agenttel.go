@@ -13,7 +13,7 @@
 //	tp := sdktrace.NewTracerProvider(
 //	    sdktrace.WithResource(engine.Resource()),
 //	    sdktrace.WithSpanProcessor(engine.SpanProcessor()),
-//	    sdktrace.WithBatcher(exporter),
+//	    sdktrace.WithBatcher(engine.WrapSpanExporter(exporter)),
 //	)
 //
 //	handler := otelhttp.NewHandler(agmw.Middleware(agmw.WithEngine(engine))(mux), "server")
@@ -25,6 +25,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"go.agenttel.dev/agenttel-go/anomaly"
 	"go.agenttel.dev/agenttel-go/attributes"
@@ -32,6 +33,7 @@ import (
 	"go.agenttel.dev/agenttel-go/errorclass"
 	"go.agenttel.dev/agenttel-go/events"
 	"go.agenttel.dev/agenttel-go/models"
+	"go.agenttel.dev/agenttel-go/namespace"
 	"go.agenttel.dev/agenttel-go/operations"
 	"go.agenttel.dev/agenttel-go/processor"
 	"go.agenttel.dev/agenttel-go/slo"
@@ -49,13 +51,14 @@ type Engine struct {
 	SLOTracker       *slo.Tracker
 	ErrorClassifier  *errorclass.Classifier
 	EventEmitter     *events.Emitter
+	NamespaceMapper  *namespace.Mapper
 	// Operations holds per-operation decision context (retryable, runbook, escalation, ...).
 	Operations    *operations.Registry
 	spanProcessor *processor.AgentTelSpanProcessor
 }
 
 // ResourceAttributes returns service.name (if configured) and the topology as
-// OTel resource attributes.
+// OTel resource attributes, named per the attributes.namespace setting.
 func (e *Engine) ResourceAttributes() []attribute.KeyValue {
 	var kv []attribute.KeyValue
 	if e.Config.Topology.ServiceName != "" {
@@ -73,7 +76,7 @@ func (e *Engine) ResourceAttributes() []attribute.KeyValue {
 			kv = append(kv, attribute.String(k, v))
 		}
 	}
-	return kv
+	return e.NamespaceMapper.MapAttributes(kv)
 }
 
 // Resource returns the default OTel resource (host, process, OTEL_* env)
@@ -84,6 +87,13 @@ func (e *Engine) Resource() *resource.Resource {
 		return resource.NewSchemaless(e.ResourceAttributes()...)
 	}
 	return r
+}
+
+// WrapSpanExporter wraps exporter so that span attributes, span events and the
+// span resource are exported with the names selected by the attributes.namespace
+// setting. In legacy mode (the default) it returns exporter unchanged.
+func (e *Engine) WrapSpanExporter(exporter sdktrace.SpanExporter) sdktrace.SpanExporter {
+	return namespace.WrapSpanExporter(exporter, e.NamespaceMapper)
 }
 
 // SpanProcessor returns the OTel SpanProcessor for use with TracerProvider.
@@ -98,6 +108,7 @@ type Builder struct {
 	topologyRegistry *topology.Registry
 	staticBaselines  map[string]models.OperationBaseline
 	sloDefinitions   []models.SLODefinition
+	namespaceMode    namespace.Mode
 }
 
 // New creates a new Engine builder.
@@ -135,6 +146,13 @@ func (b *Builder) WithSLOs(slos ...models.SLODefinition) *Builder {
 	return b
 }
 
+// WithAttributeNamespace sets the attributes.namespace mode (legacy, standard
+// or both), overriding the config file and environment.
+func (b *Builder) WithAttributeNamespace(mode namespace.Mode) *Builder {
+	b.namespaceMode = mode
+	return b
+}
+
 // Build constructs the Engine with all configured components.
 func (b *Builder) Build() (*Engine, error) {
 	// Load config
@@ -154,6 +172,16 @@ func (b *Builder) Build() (*Engine, error) {
 			cfg = DefaultConfig()
 		}
 	}
+
+	// Attribute namespace
+	if b.namespaceMode != "" {
+		cfg.Attributes.Namespace = string(b.namespaceMode)
+	}
+	nsMode, err := namespace.ParseMode(cfg.Attributes.Namespace)
+	if err != nil {
+		warnf("agenttel: %v; using legacy", err)
+	}
+	nsMapper := namespace.NewMapper(nsMode)
 
 	// Topology
 	topoReg := b.topologyRegistry
@@ -244,6 +272,9 @@ func (b *Builder) Build() (*Engine, error) {
 
 	// Events
 	eventEmitter := events.NewEmitter()
+	if !nsMapper.IsLegacy() {
+		eventEmitter.SetEventNameMapper(nsMapper.MapEventName)
+	}
 
 	// Span processor
 	sp := processor.New(
@@ -268,6 +299,7 @@ func (b *Builder) Build() (*Engine, error) {
 		SLOTracker:       sloTracker,
 		ErrorClassifier:  errorClassifier,
 		EventEmitter:     eventEmitter,
+		NamespaceMapper:  nsMapper,
 		Operations:       decisions,
 		spanProcessor:    sp,
 	}, nil

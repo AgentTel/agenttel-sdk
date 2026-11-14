@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { normalizeOperationName } from './operations.js';
+import { AttributeNamespaceMode, parseAttributeNamespaceMode } from './export/namespace-mapper.js';
 
 /*
  * The canonical format is shared by every AgentTel SDK (JVM, Go, Node.js, Python):
@@ -79,6 +80,15 @@ export interface SLOConfig {
   windowSeconds?: number;
 }
 
+/** `agenttel.attributes.*` settings. */
+export interface AttributesConfig {
+  /**
+   * Which attribute names to emit: `legacy` (default, `agenttel.*` only), `standard`
+   * (standard OpenTelemetry names in place of mapped `agenttel.*` names) or `both`.
+   */
+  namespace?: AttributeNamespaceMode | 'legacy' | 'standard' | 'both';
+}
+
 export interface AgentTelConfig {
   enabled?: boolean;
   topology?: TopologyConfig;
@@ -92,6 +102,7 @@ export interface AgentTelConfig {
   rollingMinSamples?: number;
   anomalyDetectionEnabled?: boolean;
   anomalyZScoreThreshold?: number;
+  attributes?: AttributesConfig;
 }
 
 /** Load config from a YAML file (canonical `agenttel:` format or a legacy dialect). */
@@ -120,6 +131,9 @@ export function loadConfigFromEnv(): AgentTelConfig {
 
   const minSamp = process.env.AGENTTEL_ROLLING_MIN_SAMPLES;
   if (minSamp) config.rollingMinSamples = parseInt(minSamp, 10);
+
+  const namespace = process.env.AGENTTEL_ATTRIBUTES_NAMESPACE;
+  if (namespace) config.attributes = { namespace: parseAttributeNamespaceMode(namespace) };
 
   return config;
 }
@@ -300,6 +314,11 @@ export function parseConfig(input: Record<string, unknown>): AgentTelConfig {
   if (anomaly['enabled'] !== undefined) config.anomalyDetectionEnabled = bool(anomaly['enabled']);
   const threshold = num(anomaly['z-score-threshold'] ?? raw['anomaly-zscore-threshold']);
   if (threshold !== undefined) config.anomalyZScoreThreshold = threshold;
+
+  const attributes = obj(raw['attributes']);
+  if (attributes['namespace'] !== undefined) {
+    config.attributes = { namespace: parseAttributeNamespaceMode(attributes['namespace']) };
+  }
 
   for (const k of ['rolling-window-size', 'rolling-min-samples', 'anomaly-zscore-threshold', 'slos']) {
     if (k in raw) legacy.add(k);
