@@ -46,5 +46,7 @@ agenttel:
   baselines:
     rolling-window-size: 500
     rolling-min-samples: 5
+  attributes:
+    namespace: both
   anomaly-detection:
     z-score-threshold: 2.5

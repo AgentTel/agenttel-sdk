@@ -14,6 +14,8 @@ The canonical format is shared by every AgentTel SDK (JVM, Go, Node.js, Python):
           expected-error-rate: 0.001
           retryable: true
           runbook-url: https://wiki.example.com/runbooks/payments
+      attributes:
+        namespace: legacy                # legacy | standard | both
 
 Older dialects (no ``agenttel:`` root, snake_case or camelCase keys, and the
 ``operations`` list used by the Node.js SDK before 0.4.0) are still accepted and
@@ -29,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from agenttel.enums import (
     ConsumptionPattern,
@@ -39,6 +41,7 @@ from agenttel.enums import (
     ServiceTier,
     SloType,
 )
+from agenttel.export.namespace import AttributeNamespaceMode
 
 logger = logging.getLogger("agenttel.config")
 
@@ -208,6 +211,19 @@ class McpConfig(_ConfigModel):
     host: str = "0.0.0.0"
 
 
+class AttributesConfig(_ConfigModel):
+    """Attribute naming: ``namespace`` is legacy (``agenttel.*``, default), standard
+    (standard OpenTelemetry names where one exists) or both."""
+
+    namespace: AttributeNamespaceMode = AttributeNamespaceMode.LEGACY
+
+    @field_validator("namespace", mode="before")
+    @classmethod
+    def _parse_namespace(cls, value: Any) -> AttributeNamespaceMode:
+        # Case-insensitive; unknown values log a warning and fall back to legacy.
+        return AttributeNamespaceMode.parse(value)
+
+
 class AgentRoleConfig(_ConfigModel):
     """Agent role permissions configuration."""
 
@@ -229,6 +245,7 @@ class AgentTelConfig(_ConfigModel):
     deployment: DeploymentConfig = DeploymentConfig()
     mcp: McpConfig = McpConfig()
     agent_roles: dict[str, AgentRoleConfig] = {}
+    attributes: AttributesConfig = AttributesConfig()
 
     def get_operation(self, name: str) -> OperationConfig | None:
         """Look up an operation by name in any accepted key form."""

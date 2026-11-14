@@ -21,6 +21,9 @@ import io.agenttel.core.enrichment.OperationContext;
 import io.agenttel.core.enrichment.OperationContextRegistry;
 import io.agenttel.core.error.ErrorClassifier;
 import io.agenttel.core.export.AgentTelEnrichingSpanExporter;
+import io.agenttel.core.export.AttributeNamespaceMapper;
+import io.agenttel.core.export.AttributeNamespaceMode;
+import io.agenttel.core.export.NamespaceMappingSpanExporter;
 import io.agenttel.core.resource.AgentTelGlobalState;
 import io.agenttel.core.resource.AgentTelResourceProvider;
 import io.agenttel.core.slo.SloTracker;
@@ -59,6 +62,7 @@ public class AgentTelExtensionCustomizer implements AutoConfigurationCustomizerP
         // 1. Build TopologyRegistry from config
         TopologyRegistry topology = buildTopology(config);
         AgentTelGlobalState.initialize(topology);
+        AgentTelGlobalState.setNamespaceMapper(namespaceMapper(config));
 
         // 2. Build baselines + operation contexts (with profile resolution)
         StaticBaselineProvider baselines = new StaticBaselineProvider();
@@ -93,7 +97,8 @@ public class AgentTelExtensionCustomizer implements AutoConfigurationCustomizerP
         // processor's onStart lookup misses them.
         customizer.addSpanExporterCustomizer(
                 (exporter, cfg) -> new AgentTelEnrichingSpanExporter(
-                        exporter, rollingBaselines, sloTracker, causalityTracker,
+                        NamespaceMappingSpanExporter.wrap(exporter, AgentTelGlobalState.getNamespaceMapper()),
+                        rollingBaselines, sloTracker, causalityTracker,
                         anomalyDetector, errorClassifier, topology)
                         .withOperationMetadata(baselines, opContexts));
 
@@ -104,6 +109,16 @@ public class AgentTelExtensionCustomizer implements AutoConfigurationCustomizerP
         logger.info("AgentTel extension initialized — topology: team=" + topology.getTeam()
                 + ", tier=" + topology.getTier().getValue()
                 + ", operations=" + config.getOperations().size());
+    }
+
+    private static AttributeNamespaceMapper namespaceMapper(AgentTelConfig config) {
+        try {
+            return new AttributeNamespaceMapper(
+                    AttributeNamespaceMode.fromValue(config.getAttributes().getNamespace()));
+        } catch (IllegalArgumentException e) {
+            logger.warning(e.getMessage() + "; using legacy");
+            return AttributeNamespaceMapper.LEGACY;
+        }
     }
 
     private static TopologyRegistry buildTopology(AgentTelConfig config) {

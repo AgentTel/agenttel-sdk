@@ -97,6 +97,7 @@ public final class AgentTelConfigLoader {
         applyIfSet("agenttel.topology.domain", config.getTopology()::setDomain);
         applyIfSet("agenttel.topology.on-call-channel", config.getTopology()::setOnCallChannel);
         applyIfSet("agenttel.topology.repo-url", config.getTopology()::setRepoUrl);
+        applyIfSet("agenttel.attributes.namespace", config.getAttributes()::setNamespace);
 
         String enabled = System.getProperty("agenttel.enabled");
         if (enabled != null) {
@@ -110,6 +111,7 @@ public final class AgentTelConfigLoader {
         applyEnvIfSet("AGENTTEL_TOPOLOGY_DOMAIN", config.getTopology()::setDomain);
         applyEnvIfSet("AGENTTEL_TOPOLOGY_ON_CALL_CHANNEL", config.getTopology()::setOnCallChannel);
         applyEnvIfSet("AGENTTEL_TOPOLOGY_REPO_URL", config.getTopology()::setRepoUrl);
+        applyEnvIfSet("AGENTTEL_ATTRIBUTES_NAMESPACE", config.getAttributes()::setNamespace);
 
         String enabled = System.getenv("AGENTTEL_ENABLED");
         if (enabled != null) {

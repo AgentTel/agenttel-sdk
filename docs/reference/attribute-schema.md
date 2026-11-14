@@ -47,6 +47,8 @@
 
 `upstream.note` explains a mapping that is not obvious or a known open question.
 
+The SDKs emit `upstream.key` in place of, or next to, `key` when `agenttel.attributes.namespace` is `standard` or `both` (see [Configuration](configuration.md#attribute-names)). `scripts/generate-namespace-maps.py` turns these fields into each SDK's key map; the validator fails when a generated map is out of date.
+
 ## Events
 
 Event names live in the top-level `events` map, not among the attributes. Each event lists its attribute namespace, `stability` and `upstream` with the same meanings as above.

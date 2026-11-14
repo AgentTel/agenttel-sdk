@@ -18,6 +18,7 @@ Complete reference for every configuration property in AgentTel -- backend (Spri
 | [Operations](#operations) | 10 per operation | Per-operation baselines and decisions |
 | [Baselines](#baselines) | 3 | Rolling baseline configuration |
 | [Anomaly Detection](#anomaly-detection) | 2 | Detection tuning |
+| [Attribute Names](#attribute-names) | 1 | `agenttel.*` or standard OpenTelemetry names |
 | [Deployment](#deployment) | 3 | Deployment metadata |
 | [Agent Roles](#agent-roles) | 1 per role | Role-based permissions |
 | [Agentic](#agentic) | 3 global + 6 per agent | Agent identity and safety guardrails |
@@ -271,6 +272,46 @@ Controls built-in anomaly detection that flags spans deviating from expected bas
 
 ---
 
+## Attribute Names {#attribute-names}
+
+Chooses which attribute names AgentTel emits. Every SDK (JVM, Go, Node.js, Python) supports it.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `agenttel.attributes.namespace` | string | `legacy` | `legacy`, `standard` or `both` |
+
+| Value | Effect |
+|-------|--------|
+| `legacy` | Only `agenttel.*` names, as in earlier releases |
+| `standard` | Each `agenttel.*` attribute or event that has a standard name is emitted under that name instead. The rest keep their `agenttel.*` name |
+| `both` | Each such attribute is emitted under both names. Events keep their `agenttel.*` name |
+
+Standard names are the existing OpenTelemetry attribute where one exists (for example `agenttel.topology.repo_url` becomes `vcs.repository.url.full` and `agenttel.error.root_exception` becomes `exception.type`), and otherwise a provisional `reliability.*` name proposed for OpenTelemetry semantic conventions. The mapping comes from the `upstream` field in `attributes.json`; see [Attribute Schema](attribute-schema.md). An attribute already on the span under the standard name (such as an `exception.type` set by instrumentation) is never overwritten.
+
+The mapping applies at export time to span attributes, span events and the resource, and to the topology resource and events AgentTel emits. AgentTel's own processing (baselines, anomaly detection, the MCP server) is unaffected.
+
+On the JVM (javaagent and Spring Boot starter) AgentTel wraps the span exporter for you. In Go, Node.js and Python you register the exporter yourself, so pass it through the engine for span attributes to be mapped:
+
+| SDK | Exporter wrapping |
+|-----|-------------------|
+| Go | `sdktrace.WithBatcher(engine.WrapSpanExporter(exporter))` |
+| Node.js | `new BatchSpanProcessor(engine.wrapExporter(exporter))` |
+| Python | `BatchSpanProcessor(engine.wrap_exporter(exporter))` |
+
+Without it, `standard` and `both` still apply to the topology resource and to events, but span attributes keep their `agenttel.*` names. The Go and Node.js SDKs also read `AGENTTEL_ATTRIBUTES_NAMESPACE`.
+
+!!! example "Example"
+    ```yaml
+    agenttel:
+      attributes:
+        namespace: both   # migrate dashboards before switching to standard
+    ```
+
+!!! warning "Provisional names"
+    `reliability.*` names are a proposal and may change before OpenTelemetry adopts them. Use `both` while migrating queries and dashboards.
+
+---
+
 ## Deployment {#deployment}
 
 Deployment metadata emitted as a span event on application startup.
@@ -472,6 +513,7 @@ java -javaagent:agenttel-javaagent.jar \
 | `agenttel.topology.domain` | `-Dagenttel.topology.domain` | `AGENTTEL_TOPOLOGY_DOMAIN` |
 | `agenttel.topology.on-call-channel` | `-Dagenttel.topology.on-call-channel` | `AGENTTEL_TOPOLOGY_ON_CALL_CHANNEL` |
 | `agenttel.topology.repo-url` | `-Dagenttel.topology.repo-url` | `AGENTTEL_TOPOLOGY_REPO_URL` |
+| `agenttel.attributes.namespace` | `-Dagenttel.attributes.namespace` | `AGENTTEL_ATTRIBUTES_NAMESPACE` |
 
 ---
 

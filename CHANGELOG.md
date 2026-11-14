@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Standard attribute names (all SDKs)
+
+- New setting `agenttel.attributes.namespace` (`legacy` | `standard` | `both`, default `legacy`). `standard` emits each AgentTel attribute and event that has a standard name under that name: the existing OpenTelemetry attribute where there is one (`vcs.repository.url.full`, `deployment.id`, `service.version`, `vcs.ref.head.revision`, `exception.type`, `session.id`), otherwise the provisional `reliability.*` name. `both` emits both names so dashboards can migrate. An attribute already present under the standard name is never overwritten. Javaagent: `-Dagenttel.attributes.namespace` / `AGENTTEL_ATTRIBUTES_NAMESPACE`.
+- Applied at export time to span attributes, span events and the resource, and at the source to the topology resource and Logs API events. AgentTel's own processing still reads `agenttel.*` names.
+- Each SDK's key map is generated from `attributes.json` by `scripts/generate-namespace-maps.py`; `scripts/validate-attributes.sh` fails when one is stale.
+
 ### Attribute schema
 
 - `attributes.json` (schema 1.1.0) records, for every attribute, its `stability`, `kind` (declared, derived, hybrid, observed), `level` (resource, span, event) and `upstream` mapping to OpenTelemetry semantic conventions. See `docs/reference/attribute-schema.md`.

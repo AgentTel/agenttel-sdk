@@ -25,6 +25,9 @@ import io.agenttel.core.resource.AgentTelGlobalState;
 import io.agenttel.core.slo.SloTracker;
 import io.agenttel.core.topology.TopologyRegistry;
 import io.agenttel.core.export.AgentTelEnrichingSpanExporter;
+import io.agenttel.core.export.AttributeNamespaceMapper;
+import io.agenttel.core.export.AttributeNamespaceMode;
+import io.agenttel.core.export.NamespaceMappingSpanExporter;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizerProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -94,6 +97,8 @@ public class AgentTelAutoConfiguration {
 
         // Set global state for SPI-based ResourceProvider
         AgentTelGlobalState.initialize(registry);
+        AgentTelGlobalState.setNamespaceMapper(new AttributeNamespaceMapper(
+                AttributeNamespaceMode.fromValue(props.getAttributes().getNamespace())));
 
         return registry;
     }
@@ -283,7 +288,9 @@ public class AgentTelAutoConfiguration {
                     (builder, config) -> builder.addSpanProcessor(spanProcessor));
             customizer.addSpanExporterCustomizer(
                     (exporter, config) -> new AgentTelEnrichingSpanExporter(
-                            exporter, rollingBaselines, sloTracker, causalityTracker,
+                            NamespaceMappingSpanExporter.wrap(
+                                    exporter, AgentTelGlobalState.getNamespaceMapper()),
+                            rollingBaselines, sloTracker, causalityTracker,
                             anomalyDetector, errorClassifier, topology));
         };
     }

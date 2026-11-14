@@ -22,6 +22,7 @@ public class AgentTelProperties {
     private Map<String, OperationProperties> operations = new LinkedHashMap<>();
     private BaselineProperties baselines = new BaselineProperties();
     private AnomalyDetectionProperties anomalyDetection = new AnomalyDetectionProperties();
+    private AttributesProperties attributes = new AttributesProperties();
     private DeploymentProperties deployment = new DeploymentProperties();
     private Map<String, List<String>> agentRoles = new LinkedHashMap<>();
     private AgenticProperties agentic = new AgenticProperties();
@@ -42,6 +43,8 @@ public class AgentTelProperties {
     public void setBaselines(BaselineProperties baselines) { this.baselines = baselines; }
     public AnomalyDetectionProperties getAnomalyDetection() { return anomalyDetection; }
     public void setAnomalyDetection(AnomalyDetectionProperties anomalyDetection) { this.anomalyDetection = anomalyDetection; }
+    public AttributesProperties getAttributes() { return attributes; }
+    public void setAttributes(AttributesProperties attributes) { this.attributes = attributes; }
     public DeploymentProperties getDeployment() { return deployment; }
     public void setDeployment(DeploymentProperties deployment) { this.deployment = deployment; }
     public Map<String, List<String>> getAgentRoles() { return agentRoles; }
@@ -130,6 +133,14 @@ public class AgentTelProperties {
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public double getZScoreThreshold() { return zScoreThreshold; }
         public void setZScoreThreshold(double zScoreThreshold) { this.zScoreThreshold = zScoreThreshold; }
+    }
+
+    public static class AttributesProperties {
+        /** Attribute names to emit: legacy (agenttel.*), standard, or both. */
+        private String namespace = "legacy";
+
+        public String getNamespace() { return namespace; }
+        public void setNamespace(String namespace) { this.namespace = namespace; }
     }
 
     public static class DeploymentProperties {

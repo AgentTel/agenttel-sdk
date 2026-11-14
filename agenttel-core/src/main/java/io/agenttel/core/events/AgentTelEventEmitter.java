@@ -2,6 +2,7 @@ package io.agenttel.core.events;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.agenttel.core.resource.AgentTelGlobalState;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
@@ -40,7 +41,8 @@ public class AgentTelEventEmitter {
             String bodyJson = OBJECT_MAPPER.writeValueAsString(body);
             otelLogger.logRecordBuilder()
                     .setSeverity(severity)
-                    .setAttribute(io.opentelemetry.api.common.AttributeKey.stringKey("event.name"), eventName)
+                    .setAttribute(io.opentelemetry.api.common.AttributeKey.stringKey("event.name"),
+                            AgentTelGlobalState.getNamespaceMapper().mapEventName(eventName))
                     .setBody(bodyJson)
                     .emit();
         } catch (JsonProcessingException e) {
