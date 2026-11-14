@@ -107,6 +107,11 @@ export const CIRCUIT_BREAKER_NEW_STATE = 'agenttel.circuit_breaker.new_state';
 export const CIRCUIT_BREAKER_FAILURE_COUNT = 'agenttel.circuit_breaker.failure_count';
 export const CIRCUIT_BREAKER_DEPENDENCY = 'agenttel.circuit_breaker.dependency';
 
+// Dependency health event
+export const DEPENDENCY_NAME = 'agenttel.dependency.name';
+export const DEPENDENCY_PREVIOUS_STATE = 'agenttel.dependency.previous_state';
+export const DEPENDENCY_NEW_STATE = 'agenttel.dependency.new_state';
+
 // Event names
 export const EVENT_DEPLOYMENT_INFO = 'agenttel.deployment.info';
 export const EVENT_ANOMALY_DETECTED = 'agenttel.anomaly.detected';

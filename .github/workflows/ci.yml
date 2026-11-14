@@ -143,7 +143,6 @@ jobs:
   attribute-parity:
     runs-on: ubuntu-latest
     needs: [go-test, node-test, python-test]
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -152,3 +151,14 @@ jobs:
 
       - name: Validate attribute parity
         run: bash scripts/validate-attributes.sh
+
+  semconv-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the reliability.* Weaver registry
+        # Freeze baseline: the PR's base commit, or the previous commit on main
+        run: bash scripts/check-semconv-registry.sh "${{ github.event.pull_request.base.sha || github.event.before }}"

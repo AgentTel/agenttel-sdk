@@ -114,6 +114,11 @@ CIRCUIT_BREAKER_NEW_STATE = "agenttel.circuit_breaker.new_state"
 CIRCUIT_BREAKER_FAILURE_COUNT = "agenttel.circuit_breaker.failure_count"
 CIRCUIT_BREAKER_DEPENDENCY = "agenttel.circuit_breaker.dependency"
 
+# Dependency health event attributes
+DEPENDENCY_NAME = "agenttel.dependency.name"
+DEPENDENCY_PREVIOUS_STATE = "agenttel.dependency.previous_state"
+DEPENDENCY_NEW_STATE = "agenttel.dependency.new_state"
+
 # Event names
 EVENT_DEPLOYMENT_INFO = "agenttel.deployment.info"
 EVENT_ANOMALY_DETECTED = "agenttel.anomaly.detected"
