@@ -45,6 +45,6 @@ public class AgentTelResourceProvider implements ResourceProvider {
             builder.put(AgentTelAttributes.TOPOLOGY_CONSUMERS, consumersJson);
         }
 
-        return builder.build();
+        return AgentTelGlobalState.getNamespaceMapper().map(builder.build());
     }
 }

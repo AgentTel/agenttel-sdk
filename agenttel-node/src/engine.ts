@@ -12,6 +12,9 @@ import { TopologyRegistry } from './topology/registry.js';
 import { AgentTelEventEmitter } from './events/emitter.js';
 import { AgentTelSpanProcessor } from './processor.js';
 import type { OperationBaseline, SLODefinition } from './interfaces.js';
+import { AttributeNamespaceMapper, type AttributeNamespaceMode } from './export/namespace-mapper.js';
+import { NamespaceMappingSpanExporter } from './export/namespace-exporter.js';
+import type { SpanExporter } from '@opentelemetry/sdk-trace-node';
 
 /** Top-level orchestrator for AgentTel SDK. */
 export class AgentTelEngine {
@@ -26,9 +29,12 @@ export class AgentTelEngine {
   /** Per-operation decision context (retryable, runbook, escalation, ...). */
   readonly operations: OperationRegistry;
   readonly config: AgentTelConfig;
+  /** Applies `agenttel.attributes.namespace` (legacy | standard | both). */
+  readonly namespaceMapper: AttributeNamespaceMapper;
 
   private constructor(config: AgentTelConfig) {
     this.config = config;
+    this.namespaceMapper = new AttributeNamespaceMapper(config.attributes?.namespace);
     // Topology
     this.topology = new TopologyRegistry();
     if (config.topology) {
@@ -105,7 +111,7 @@ export class AgentTelEngine {
     this.errorClassifier = new ErrorClassifier();
 
     // Events
-    this.eventEmitter = new AgentTelEventEmitter();
+    this.eventEmitter = new AgentTelEventEmitter(this.namespaceMapper);
 
     // Span processor
     this.spanProcessor = new AgentTelSpanProcessor({
@@ -126,8 +132,19 @@ export class AgentTelEngine {
   }
 
   /**
+   * Wraps a SpanExporter so exported spans (attributes, events, resource) follow
+   * `agenttel.attributes.namespace`. Returns the exporter unchanged in `legacy` mode.
+   * Use it for the exporter you register, e.g.
+   * `new BatchSpanProcessor(engine.wrapExporter(new OTLPTraceExporter()))`.
+   */
+  wrapExporter(exporter: SpanExporter): SpanExporter {
+    return NamespaceMappingSpanExporter.wrap(exporter, this.namespaceMapper);
+  }
+
+  /**
    * Topology as OTel resource attributes, for `new Resource(engine.resourceAttributes())`
-   * (or `resourceFromAttributes` in OTel JS 2.x).
+   * (or `resourceFromAttributes` in OTel JS 2.x). Keys follow `agenttel.attributes.namespace`,
+   * so metrics and logs sharing this resource get the configured names too.
    */
   resourceAttributes(): Record<string, string> {
     const out: Record<string, string> = {};
@@ -138,7 +155,7 @@ export class AgentTelEngine {
     if (t.domain) out[attrs.TOPOLOGY_DOMAIN] = t.domain;
     if (t.onCallChannel) out[attrs.TOPOLOGY_ON_CALL_CHANNEL] = t.onCallChannel;
     if (t.repoUrl) out[attrs.TOPOLOGY_REPO_URL] = t.repoUrl;
-    return out;
+    return this.namespaceMapper.map(out);
   }
 
   /** Create an engine from a YAML file in the shared AgentTel config format. */
@@ -200,6 +217,12 @@ export class AgentTelEngineBuilder {
   withSLO(slo: SLODefinition): this {
     if (!this.config.slos) this.config.slos = [];
     this.config.slos.push(slo);
+    return this;
+  }
+
+  /** Which attribute names to emit: legacy (default), standard or both. */
+  withAttributeNamespace(namespace: AttributeNamespaceMode | 'legacy' | 'standard' | 'both'): this {
+    this.config.attributes = { ...this.config.attributes, namespace };
     return this;
   }
 

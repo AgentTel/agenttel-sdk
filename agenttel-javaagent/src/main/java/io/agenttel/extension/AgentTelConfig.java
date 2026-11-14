@@ -25,6 +25,7 @@ public class AgentTelConfig {
     private BaselineConfig baselines = new BaselineConfig();
     @JsonProperty("anomaly-detection")
     private AnomalyDetectionConfig anomalyDetection = new AnomalyDetectionConfig();
+    private AttributesConfig attributes = new AttributesConfig();
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -42,6 +43,8 @@ public class AgentTelConfig {
     public void setBaselines(BaselineConfig baselines) { this.baselines = baselines; }
     public AnomalyDetectionConfig getAnomalyDetection() { return anomalyDetection; }
     public void setAnomalyDetection(AnomalyDetectionConfig anomalyDetection) { this.anomalyDetection = anomalyDetection; }
+    public AttributesConfig getAttributes() { return attributes; }
+    public void setAttributes(AttributesConfig attributes) { this.attributes = attributes; }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TopologyConfig {
@@ -135,6 +138,15 @@ public class AgentTelConfig {
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public double getZScoreThreshold() { return zScoreThreshold; }
         public void setZScoreThreshold(double zScoreThreshold) { this.zScoreThreshold = zScoreThreshold; }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class AttributesConfig {
+        /** Attribute names to emit: legacy (agenttel.*), standard, or both. */
+        private String namespace = "legacy";
+
+        public String getNamespace() { return namespace; }
+        public void setNamespace(String namespace) { this.namespace = namespace; }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

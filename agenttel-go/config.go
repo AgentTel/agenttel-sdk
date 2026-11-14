@@ -29,6 +29,8 @@ import (
 //	      expected-error-rate: 0.001
 //	      retryable: true
 //	      runbook-url: https://wiki.example.com/runbooks/payments
+//	  attributes:
+//	    namespace: standard              # legacy (default) | standard | both
 //
 // The pre-0.4.0 Go dialect (no "agenttel:" root, camelCase keys) still loads,
 // with a deprecation warning.
@@ -42,6 +44,14 @@ type AgentTelConfig struct {
 	Baselines        BaselineConfig             `yaml:"baselines"`
 	AnomalyDetection AnomalyDetectionConfig     `yaml:"anomaly-detection"`
 	SLO              map[string]SLOConfig       `yaml:"slo"`
+	Attributes       AttributesConfig           `yaml:"attributes"`
+}
+
+// AttributesConfig controls attribute naming.
+type AttributesConfig struct {
+	// Namespace selects the emitted attribute names: "legacy" (default, only
+	// agenttel.*), "standard" (standard OTel names where one exists) or "both".
+	Namespace string `yaml:"namespace"`
 }
 
 // TopologyConfig describes service ownership metadata.
@@ -202,6 +212,7 @@ func applyEnvOverrides(cfg *AgentTelConfig) {
 		"AGENTTEL_TOPOLOGY_DOMAIN":          &cfg.Topology.Domain,
 		"AGENTTEL_TOPOLOGY_ON_CALL_CHANNEL": &cfg.Topology.OnCallChannel,
 		"AGENTTEL_TOPOLOGY_REPO_URL":        &cfg.Topology.RepoURL,
+		"AGENTTEL_ATTRIBUTES_NAMESPACE":     &cfg.Attributes.Namespace,
 	}
 
 	for envKey, field := range envMap {

@@ -14,6 +14,7 @@ type Handler func(eventName string, body map[string]any)
 type Emitter struct {
 	mu       sync.RWMutex
 	handlers []Handler
+	mapName  func(string) string
 }
 
 // NewEmitter creates an event emitter.
@@ -28,10 +29,23 @@ func (e *Emitter) OnEvent(h Handler) {
 	e.handlers = append(e.handlers, h)
 }
 
+// SetEventNameMapper sets a function applied to every event name before it
+// reaches the handlers (used for the agenttel.attributes.namespace setting).
+// A nil function leaves names unchanged.
+func (e *Emitter) SetEventNameMapper(fn func(string) string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.mapName = fn
+}
+
 // Emit sends a structured event to all registered handlers.
 func (e *Emitter) Emit(eventName string, body map[string]any) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+
+	if e.mapName != nil {
+		eventName = e.mapName(eventName)
+	}
 
 	for _, h := range e.handlers {
 		func() {

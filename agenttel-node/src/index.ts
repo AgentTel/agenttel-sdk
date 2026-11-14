@@ -6,10 +6,15 @@ export type { ProcessorOptions } from './processor.js';
 // Config
 export { loadConfig, loadConfigFromEnv, defaultConfig } from './config.js';
 export { loadConfig as loadConfigFile, parseConfig } from './config.js';
-export type { AgentTelConfig, TopologyConfig, DependencyConfig, ConsumerConfig, OperationConfig, ProfileConfig, SLOConfig } from './config.js';
+export type { AgentTelConfig, AttributesConfig, TopologyConfig, DependencyConfig, ConsumerConfig, OperationConfig, ProfileConfig, SLOConfig } from './config.js';
 export { OperationRegistry, normalizeOperationName, parseDurationMs } from './operations.js';
 export type { DecisionContext, DecisionProvider } from './operations.js';
 export { enrichOperation, enrichTopology } from './enrich.js';
+
+// Attribute namespace (agenttel.attributes.namespace)
+export { AttributeNamespaceMode, AttributeNamespaceMapper, parseAttributeNamespaceMode } from './export/namespace-mapper.js';
+export { NamespaceMappingSpanExporter } from './export/namespace-exporter.js';
+export { STANDARD_ATTRIBUTE_KEYS, STANDARD_EVENT_NAMES } from './namespaces.js';
 
 // Attributes
 export * from './attributes.js';

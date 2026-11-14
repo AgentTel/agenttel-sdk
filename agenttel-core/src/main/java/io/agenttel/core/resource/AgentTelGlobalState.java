@@ -1,5 +1,6 @@
 package io.agenttel.core.resource;
 
+import io.agenttel.core.export.AttributeNamespaceMapper;
 import io.agenttel.core.topology.TopologyRegistry;
 
 /**
@@ -10,6 +11,7 @@ public final class AgentTelGlobalState {
     private AgentTelGlobalState() {}
 
     private static volatile TopologyRegistry topologyRegistry;
+    private static volatile AttributeNamespaceMapper namespaceMapper = AttributeNamespaceMapper.LEGACY;
 
     public static void initialize(TopologyRegistry registry) {
         topologyRegistry = registry;
@@ -19,8 +21,18 @@ public final class AgentTelGlobalState {
         return topologyRegistry;
     }
 
+    /** Sets the {@code agenttel.attributes.namespace} mapping used for resources and events. */
+    public static void setNamespaceMapper(AttributeNamespaceMapper mapper) {
+        namespaceMapper = mapper == null ? AttributeNamespaceMapper.LEGACY : mapper;
+    }
+
+    public static AttributeNamespaceMapper getNamespaceMapper() {
+        return namespaceMapper;
+    }
+
     /** Resets state (for testing). */
     public static void reset() {
         topologyRegistry = null;
+        namespaceMapper = AttributeNamespaceMapper.LEGACY;
     }
 }

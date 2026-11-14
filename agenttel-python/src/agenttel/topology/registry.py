@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from agenttel.config import AgentTelConfig
+from agenttel.export.namespace import AttributeNamespaceMapper
 from agenttel.models import ConsumerDescriptor, DependencyDescriptor
 
 
@@ -86,3 +87,12 @@ class TopologyRegistry:
         if self._config.topology.repo_url:
             attrs[attr.TOPOLOGY_REPO_URL] = self._config.topology.repo_url
         return attrs
+
+    def get_resource_attributes(self) -> dict[str, str]:
+        """Topology attributes for an OTel Resource, named per ``attributes.namespace``.
+
+        Mapped at the source (unlike span attributes, which are mapped at export) so
+        that metrics and logs sharing the resource carry the configured names too.
+        """
+        mapper = AttributeNamespaceMapper(self._config.attributes.namespace)
+        return dict(mapper.map_attributes(self.get_topology_attributes()) or {})
