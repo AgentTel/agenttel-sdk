@@ -147,6 +147,7 @@ const (
 
 // Agentic capability attributes.
 const (
+	AgenticCapabilityTools            = "agenttel.agentic.capability.tools"
 	AgenticCapabilityToolCount        = "agenttel.agentic.capability.tool_count"
 	AgenticCapabilitySystemPromptHash = "agenttel.agentic.capability.system_prompt_hash"
 )

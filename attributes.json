@@ -1,350 +1,349 @@
 {
-  "version": "1.0.0",
-  "description": "Canonical AgentTel semantic attribute schema. Single source of truth for all agenttel.* and gen_ai.* attribute keys across Go, Node.js, and Python SDKs.",
+  "version": "1.1.0",
+  "description": "Canonical AgentTel semantic attribute schema. Single source of truth for all agenttel.* and gen_ai.* attribute keys and event names across the JVM, Go, Node.js and Python SDKs. Field meanings: docs/reference/attribute-schema.md",
   "namespaces": {
     "agenttel.topology": {
       "description": "Service ownership, tier, and dependency graph metadata",
       "attributes": {
-        "team": { "key": "agenttel.topology.team", "type": "string", "description": "Owning team name" },
-        "tier": { "key": "agenttel.topology.tier", "type": "string", "description": "Service tier (e.g. critical, standard)" },
-        "domain": { "key": "agenttel.topology.domain", "type": "string", "description": "Business domain" },
-        "on_call_channel": { "key": "agenttel.topology.on_call_channel", "type": "string", "description": "On-call notification channel" },
-        "repo_url": { "key": "agenttel.topology.repo_url", "type": "string", "description": "Source repository URL" },
-        "dependencies": { "key": "agenttel.topology.dependencies", "type": "string", "description": "Comma-separated list of downstream dependencies" },
-        "consumers": { "key": "agenttel.topology.consumers", "type": "string", "description": "Comma-separated list of upstream consumers" }
+        "team": { "key": "agenttel.topology.team", "type": "string", "description": "Owning team name", "stability": "development", "kind": "declared", "level": "resource", "upstream": { "status": "candidate", "key": "reliability.topology.team", "note": "May overlap a future OTel service owner attribute" } },
+        "tier": { "key": "agenttel.topology.tier", "type": "string", "description": "Service criticality tier", "enum": ["critical", "standard", "internal", "experimental"], "stability": "development", "kind": "declared", "level": "resource", "upstream": { "status": "candidate", "key": "reliability.topology.tier" } },
+        "domain": { "key": "agenttel.topology.domain", "type": "string", "description": "Business domain", "stability": "development", "kind": "declared", "level": "resource", "upstream": { "status": "candidate", "key": "reliability.topology.domain" } },
+        "on_call_channel": { "key": "agenttel.topology.on_call_channel", "type": "string", "description": "On-call notification channel", "stability": "development", "kind": "declared", "level": "resource", "upstream": { "status": "candidate", "key": "reliability.topology.on_call_channel" } },
+        "repo_url": { "key": "agenttel.topology.repo_url", "type": "string", "description": "Source repository URL", "stability": "development", "kind": "declared", "level": "resource", "upstream": { "status": "otel_existing", "key": "vcs.repository.url.full" } },
+        "dependencies": { "key": "agenttel.topology.dependencies", "type": "string", "description": "JSON array of dependency descriptors (name, type, criticality, protocol, timeout_ms, circuit_breaker, fallback, health_endpoint)", "stability": "development", "kind": "declared", "level": "resource", "upstream": { "status": "candidate", "key": "reliability.topology.dependencies", "note": "JSON-encoded string; flat attributes or entity relationships may suit OTel better" } },
+        "consumers": { "key": "agenttel.topology.consumers", "type": "string", "description": "JSON array of consumer descriptors (name, consumption_pattern, sla_latency_ms)", "stability": "development", "kind": "declared", "level": "resource", "upstream": { "status": "candidate", "key": "reliability.topology.consumers", "note": "JSON-encoded string; flat attributes or entity relationships may suit OTel better" } }
       }
     },
     "agenttel.baseline": {
       "description": "Expected operational norms for anomaly detection",
       "attributes": {
-        "latency_p50_ms": { "key": "agenttel.baseline.latency_p50_ms", "type": "double", "description": "Baseline p50 latency in milliseconds" },
-        "latency_p99_ms": { "key": "agenttel.baseline.latency_p99_ms", "type": "double", "description": "Baseline p99 latency in milliseconds" },
-        "error_rate": { "key": "agenttel.baseline.error_rate", "type": "double", "description": "Baseline error rate (0.0-1.0)" },
-        "throughput_rps": { "key": "agenttel.baseline.throughput_rps", "type": "double", "description": "Baseline throughput in requests per second" },
-        "source": { "key": "agenttel.baseline.source", "type": "string", "description": "Source of baseline data (e.g. historical, manual)" },
-        "updated_at": { "key": "agenttel.baseline.updated_at", "type": "string", "description": "ISO 8601 timestamp of last baseline update" },
-        "slo": { "key": "agenttel.baseline.slo", "type": "string", "description": "Associated SLO name" },
-        "sample_count": { "key": "agenttel.baseline.sample_count", "type": "int", "description": "Number of samples used to compute baseline" },
-        "confidence": { "key": "agenttel.baseline.confidence", "type": "double", "description": "Confidence score of baseline (0.0-1.0)" }
+        "latency_p50_ms": { "key": "agenttel.baseline.latency_p50_ms", "type": "double", "description": "Baseline p50 latency in milliseconds", "stability": "development", "kind": "hybrid", "level": "span", "upstream": { "status": "candidate", "key": "reliability.baseline.latency_p50_ms", "note": "Declared in config (source=static) or computed by the engine (source=rolling). Only the declared form is in the first proposal" } },
+        "latency_p99_ms": { "key": "agenttel.baseline.latency_p99_ms", "type": "double", "description": "Baseline p99 latency in milliseconds", "stability": "development", "kind": "hybrid", "level": "span", "upstream": { "status": "candidate", "key": "reliability.baseline.latency_p99_ms", "note": "Declared in config (source=static) or computed by the engine (source=rolling). Only the declared form is in the first proposal" } },
+        "error_rate": { "key": "agenttel.baseline.error_rate", "type": "double", "description": "Baseline error rate (0.0-1.0)", "stability": "development", "kind": "hybrid", "level": "span", "upstream": { "status": "candidate", "key": "reliability.baseline.error_rate", "note": "Declared in config (source=static) or computed by the engine (source=rolling). Only the declared form is in the first proposal" } },
+        "throughput_rps": { "key": "agenttel.baseline.throughput_rps", "type": "double", "description": "Baseline throughput in requests per second", "stability": "development", "kind": "hybrid", "level": "span", "upstream": { "status": "candidate", "key": "reliability.baseline.throughput_rps", "note": "Declared in config (source=static) or computed by the engine (source=rolling). Only the declared form is in the first proposal" } },
+        "source": { "key": "agenttel.baseline.source", "type": "string", "description": "Where the baseline came from", "enum": ["static", "rolling", "composite", "default"], "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.baseline.source" } },
+        "updated_at": { "key": "agenttel.baseline.updated_at", "type": "string", "description": "ISO 8601 timestamp of last baseline update", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.baseline.updated_at" } },
+        "slo": { "key": "agenttel.baseline.slo", "type": "string", "description": "Associated SLO name", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "internal", "note": "Duplicates agenttel.slo.name" } },
+        "sample_count": { "key": "agenttel.baseline.sample_count", "type": "int", "description": "Number of samples used to compute baseline", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.baseline.sample_count" } },
+        "confidence": { "key": "agenttel.baseline.confidence", "type": "string", "description": "Confidence in the baseline, from sample count", "enum": ["low", "medium", "high"], "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.baseline.confidence" } }
       }
     },
     "agenttel.cause": {
       "description": "Probable root cause linkage for spans",
       "attributes": {
-        "hint": { "key": "agenttel.cause.hint", "type": "string", "description": "Human-readable cause hint" },
-        "category": { "key": "agenttel.cause.category", "type": "string", "description": "Cause category (e.g. dependency, deployment, capacity)" },
-        "dependency": { "key": "agenttel.cause.dependency", "type": "string", "description": "Name of the dependency identified as root cause" },
-        "correlated_span_id": { "key": "agenttel.cause.correlated_span_id", "type": "string", "description": "Span ID of the correlated causal span" },
-        "correlated_event_id": { "key": "agenttel.cause.correlated_event_id", "type": "string", "description": "Event ID of the correlated causal event" },
-        "started_at": { "key": "agenttel.cause.started_at", "type": "string", "description": "ISO 8601 timestamp when the cause started" }
+        "hint": { "key": "agenttel.cause.hint", "type": "string", "description": "Human-readable cause hint", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.cause.hint" } },
+        "category": { "key": "agenttel.cause.category", "type": "string", "description": "Cause category (e.g. dependency, deployment, capacity)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.cause.category" } },
+        "dependency": { "key": "agenttel.cause.dependency", "type": "string", "description": "Name of the dependency identified as root cause", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.cause.dependency" } },
+        "correlated_span_id": { "key": "agenttel.cause.correlated_span_id", "type": "string", "description": "Span ID of the correlated causal span", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.cause.correlated_span_id" } },
+        "correlated_event_id": { "key": "agenttel.cause.correlated_event_id", "type": "string", "description": "Event ID of the correlated causal event", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "internal", "note": "AgentTel-specific event reference" } },
+        "started_at": { "key": "agenttel.cause.started_at", "type": "string", "description": "ISO 8601 timestamp when the cause started", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.cause.started_at" } }
       }
     },
     "agenttel.decision": {
       "description": "Actionable context for automated response decisions",
       "attributes": {
-        "retryable": { "key": "agenttel.decision.retryable", "type": "boolean", "description": "Whether the operation is safe to retry" },
-        "retry_after_ms": { "key": "agenttel.decision.retry_after_ms", "type": "int", "description": "Recommended retry delay in milliseconds" },
-        "idempotent": { "key": "agenttel.decision.idempotent", "type": "boolean", "description": "Whether the operation is idempotent" },
-        "fallback_available": { "key": "agenttel.decision.fallback_available", "type": "boolean", "description": "Whether a fallback path exists" },
-        "fallback_description": { "key": "agenttel.decision.fallback_description", "type": "string", "description": "Description of the fallback behavior" },
-        "runbook_url": { "key": "agenttel.decision.runbook_url", "type": "string", "description": "URL to the relevant runbook" },
-        "escalation_level": { "key": "agenttel.decision.escalation_level", "type": "string", "description": "Escalation level (e.g. L1, L2, L3)" },
-        "known_issue_id": { "key": "agenttel.decision.known_issue_id", "type": "string", "description": "ID of a known issue matching this failure" },
-        "safe_to_restart": { "key": "agenttel.decision.safe_to_restart", "type": "boolean", "description": "Whether the service is safe to restart" }
+        "retryable": { "key": "agenttel.decision.retryable", "type": "boolean", "description": "Whether the operation is safe to retry", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.retryable" } },
+        "retry_after_ms": { "key": "agenttel.decision.retry_after_ms", "type": "int", "description": "Recommended retry delay in milliseconds", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.retry_after_ms" } },
+        "idempotent": { "key": "agenttel.decision.idempotent", "type": "boolean", "description": "Whether the operation is idempotent", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.idempotent" } },
+        "fallback_available": { "key": "agenttel.decision.fallback_available", "type": "boolean", "description": "Whether a fallback path exists", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.fallback_available" } },
+        "fallback_description": { "key": "agenttel.decision.fallback_description", "type": "string", "description": "Description of the fallback behavior", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.fallback_description" } },
+        "runbook_url": { "key": "agenttel.decision.runbook_url", "type": "string", "description": "URL to the relevant runbook", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.runbook_url" } },
+        "escalation_level": { "key": "agenttel.decision.escalation_level", "type": "string", "description": "Who should handle a failure of this operation", "enum": ["auto_resolve", "notify_team", "page_oncall", "incident_commander"], "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.escalation_level" } },
+        "known_issue_id": { "key": "agenttel.decision.known_issue_id", "type": "string", "description": "ID of a known issue matching this failure", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.decision.known_issue_id", "note": "Matched at runtime, not declared" } },
+        "safe_to_restart": { "key": "agenttel.decision.safe_to_restart", "type": "boolean", "description": "Whether the service is safe to restart", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.decision.safe_to_restart" } }
       }
     },
     "agenttel.severity": {
       "description": "Impact and urgency quantification for anomalous conditions",
       "attributes": {
-        "anomaly_score": { "key": "agenttel.severity.anomaly_score", "type": "double", "description": "Numeric anomaly severity score" },
-        "pattern": { "key": "agenttel.severity.pattern", "type": "string", "description": "Detected severity pattern (e.g. spike, gradual)" },
-        "impact_scope": { "key": "agenttel.severity.impact_scope", "type": "string", "description": "Scope of impact (e.g. single-service, cross-service)" },
-        "business_impact": { "key": "agenttel.severity.business_impact", "type": "string", "description": "Business impact description" },
-        "user_facing": { "key": "agenttel.severity.user_facing", "type": "boolean", "description": "Whether the issue is user-facing" }
+        "anomaly_score": { "key": "agenttel.severity.anomaly_score", "type": "double", "description": "Numeric anomaly severity score", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "internal", "note": "Duplicates agenttel.anomaly.score / agenttel.anomaly.pattern" } },
+        "pattern": { "key": "agenttel.severity.pattern", "type": "string", "description": "Detected severity pattern (e.g. spike, gradual)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "internal", "note": "Duplicates agenttel.anomaly.score / agenttel.anomaly.pattern" } },
+        "impact_scope": { "key": "agenttel.severity.impact_scope", "type": "string", "description": "Scope of impact (e.g. single-service, cross-service)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.severity.impact_scope" } },
+        "business_impact": { "key": "agenttel.severity.business_impact", "type": "string", "description": "Business impact description", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.severity.business_impact" } },
+        "user_facing": { "key": "agenttel.severity.user_facing", "type": "boolean", "description": "Whether the issue is user-facing", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.severity.user_facing" } }
       }
     },
     "agenttel.deployment": {
       "description": "Release metadata for change correlation",
       "attributes": {
-        "id": { "key": "agenttel.deployment.id", "type": "string", "description": "Unique deployment identifier" },
-        "version": { "key": "agenttel.deployment.version", "type": "string", "description": "Deployed version string" },
-        "commit_sha": { "key": "agenttel.deployment.commit_sha", "type": "string", "description": "Git commit SHA of the deployment" },
-        "previous_version": { "key": "agenttel.deployment.previous_version", "type": "string", "description": "Previous version before this deployment" },
-        "strategy": { "key": "agenttel.deployment.strategy", "type": "string", "description": "Deployment strategy (e.g. rolling, blue-green, canary)" },
-        "timestamp": { "key": "agenttel.deployment.timestamp", "type": "string", "description": "ISO 8601 timestamp of the deployment" },
-        "info": { "key": "agenttel.deployment.info", "type": "string", "description": "Deployment info event name" }
+        "id": { "key": "agenttel.deployment.id", "type": "string", "description": "Unique deployment identifier", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "otel_existing", "key": "deployment.id" } },
+        "version": { "key": "agenttel.deployment.version", "type": "string", "description": "Deployed version string", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "otel_existing", "key": "service.version" } },
+        "commit_sha": { "key": "agenttel.deployment.commit_sha", "type": "string", "description": "Git commit SHA of the deployment", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "otel_existing", "key": "vcs.ref.head.revision" } },
+        "previous_version": { "key": "agenttel.deployment.previous_version", "type": "string", "description": "Previous version before this deployment", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "later", "key": "reliability.deployment.previous_version" } },
+        "strategy": { "key": "agenttel.deployment.strategy", "type": "string", "description": "Deployment strategy (e.g. rolling, blue-green, canary)", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "later", "key": "reliability.deployment.strategy" } },
+        "timestamp": { "key": "agenttel.deployment.timestamp", "type": "string", "description": "ISO 8601 timestamp of the deployment", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "internal", "note": "Redundant with the event timestamp" } }
       }
     },
     "agenttel.genai": {
       "description": "LLM and generative AI operational metadata (AgentTel extensions)",
       "attributes": {
-        "framework": { "key": "agenttel.genai.framework", "type": "string", "description": "GenAI framework name (e.g. langchain, llamaindex)" },
-        "cost_usd": { "key": "agenttel.genai.cost_usd", "type": "double", "description": "Estimated cost in USD for this operation" },
-        "rag_source_count": { "key": "agenttel.genai.rag_source_count", "type": "int", "description": "Number of RAG sources retrieved" },
-        "rag_relevance_score_avg": { "key": "agenttel.genai.rag_relevance_score_avg", "type": "double", "description": "Average relevance score of RAG sources" },
-        "guardrail_triggered": { "key": "agenttel.genai.guardrail_triggered", "type": "boolean", "description": "Whether a guardrail was triggered" },
-        "guardrail_name": { "key": "agenttel.genai.guardrail_name", "type": "string", "description": "Name of the triggered guardrail" },
-        "cache_hit": { "key": "agenttel.genai.cache_hit", "type": "boolean", "description": "Whether the response was served from cache" },
-        "prompt_template_id": { "key": "agenttel.genai.prompt_template_id", "type": "string", "description": "Identifier of the prompt template used" },
-        "prompt_template_version": { "key": "agenttel.genai.prompt_template_version", "type": "string", "description": "Version of the prompt template used" },
-        "reasoning_tokens": { "key": "agenttel.genai.reasoning_tokens", "type": "int", "description": "Number of reasoning/thinking tokens consumed" },
-        "cached_read_tokens": { "key": "agenttel.genai.cached_read_tokens", "type": "int", "description": "Number of tokens read from cache" },
-        "cached_write_tokens": { "key": "agenttel.genai.cached_write_tokens", "type": "int", "description": "Number of tokens written to cache" },
-        "time_to_first_token_ms": { "key": "agenttel.genai.time_to_first_token_ms", "type": "double", "description": "Time to first token in milliseconds" }
+        "framework": { "key": "agenttel.genai.framework", "type": "string", "description": "GenAI framework name (e.g. langchain, llamaindex)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "cost_usd": { "key": "agenttel.genai.cost_usd", "type": "double", "description": "Estimated cost in USD for this operation", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "rag_source_count": { "key": "agenttel.genai.rag_source_count", "type": "int", "description": "Number of RAG sources retrieved", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "rag_relevance_score_avg": { "key": "agenttel.genai.rag_relevance_score_avg", "type": "double", "description": "Average relevance score of RAG sources", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "guardrail_triggered": { "key": "agenttel.genai.guardrail_triggered", "type": "boolean", "description": "Whether a guardrail was triggered", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "guardrail_name": { "key": "agenttel.genai.guardrail_name", "type": "string", "description": "Name of the triggered guardrail", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "cache_hit": { "key": "agenttel.genai.cache_hit", "type": "boolean", "description": "Whether the response was served from cache", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "prompt_template_id": { "key": "agenttel.genai.prompt_template_id", "type": "string", "description": "Identifier of the prompt template used", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "prompt_template_version": { "key": "agenttel.genai.prompt_template_version", "type": "string", "description": "Version of the prompt template used", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "reasoning_tokens": { "key": "agenttel.genai.reasoning_tokens", "type": "int", "description": "Number of reasoning/thinking tokens consumed", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "cached_read_tokens": { "key": "agenttel.genai.cached_read_tokens", "type": "int", "description": "Number of tokens read from cache", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "cached_write_tokens": { "key": "agenttel.genai.cached_write_tokens", "type": "int", "description": "Number of tokens written to cache", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } },
+        "time_to_first_token_ms": { "key": "agenttel.genai.time_to_first_token_ms", "type": "int", "description": "Time to first token in milliseconds", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Reconcile with gen_ai.* separately" } }
       }
     },
     "agenttel.anomaly": {
       "description": "Detected anomalous behavior indicators",
       "attributes": {
-        "detected": { "key": "agenttel.anomaly.detected", "type": "boolean", "description": "Whether an anomaly was detected" },
-        "pattern": { "key": "agenttel.anomaly.pattern", "type": "string", "description": "Anomaly pattern type (e.g. spike, drift, step)" },
-        "score": { "key": "agenttel.anomaly.score", "type": "double", "description": "Anomaly confidence score (0.0-1.0)" },
-        "latency_z_score": { "key": "agenttel.anomaly.latency_z_score", "type": "double", "description": "Z-score of latency deviation from baseline" }
+        "detected": { "key": "agenttel.anomaly.detected", "type": "boolean", "description": "Whether an anomaly was detected", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.anomaly.detected" } },
+        "pattern": { "key": "agenttel.anomaly.pattern", "type": "string", "description": "Anomaly pattern type (e.g. spike, drift, step)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.anomaly.pattern" } },
+        "score": { "key": "agenttel.anomaly.score", "type": "double", "description": "Anomaly confidence score (0.0-1.0)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.anomaly.score" } },
+        "latency_z_score": { "key": "agenttel.anomaly.latency_z_score", "type": "double", "description": "Z-score of latency deviation from baseline", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.anomaly.latency_z_score" } }
       }
     },
     "agenttel.slo": {
       "description": "Service level objective status and budget tracking",
       "attributes": {
-        "name": { "key": "agenttel.slo.name", "type": "string", "description": "SLO name" },
-        "target": { "key": "agenttel.slo.target", "type": "double", "description": "SLO target value (e.g. 0.999)" },
-        "budget_remaining": { "key": "agenttel.slo.budget_remaining", "type": "double", "description": "Remaining error budget (0.0-1.0)" },
-        "burn_rate": { "key": "agenttel.slo.burn_rate", "type": "double", "description": "Current error budget burn rate" },
-        "budget_alert": { "key": "agenttel.slo.budget_alert", "type": "string", "description": "SLO budget alert event name" }
+        "name": { "key": "agenttel.slo.name", "type": "string", "description": "SLO name", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.slo.name" } },
+        "target": { "key": "agenttel.slo.target", "type": "double", "description": "SLO target value (e.g. 0.999)", "stability": "development", "kind": "declared", "level": "span", "upstream": { "status": "candidate", "key": "reliability.slo.target" } },
+        "budget_remaining": { "key": "agenttel.slo.budget_remaining", "type": "double", "description": "Remaining error budget (0.0-1.0)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.slo.budget_remaining" } },
+        "burn_rate": { "key": "agenttel.slo.burn_rate", "type": "double", "description": "Current error budget burn rate", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.slo.burn_rate" } }
       }
     },
     "agenttel.error": {
       "description": "Error classification for automated triage",
       "attributes": {
-        "category": { "key": "agenttel.error.category", "type": "string", "description": "Error category (e.g. timeout, auth, validation)" },
-        "root_exception": { "key": "agenttel.error.root_exception", "type": "string", "description": "Root exception class name" },
-        "dependency": { "key": "agenttel.error.dependency", "type": "string", "description": "Dependency that caused the error" }
+        "category": { "key": "agenttel.error.category", "type": "string", "description": "Error category (e.g. timeout, auth, validation)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.error.category", "note": "Overlaps error.type; propose as a classification of error.type, not a replacement" } },
+        "root_exception": { "key": "agenttel.error.root_exception", "type": "string", "description": "Root exception class name", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "otel_existing", "key": "exception.type" } },
+        "dependency": { "key": "agenttel.error.dependency", "type": "string", "description": "Dependency that caused the error", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.error.dependency" } }
       }
     },
     "agenttel.correlation": {
       "description": "Change correlation linking anomalies to recent changes",
       "attributes": {
-        "likely_cause": { "key": "agenttel.correlation.likely_cause", "type": "string", "description": "Description of the likely cause" },
-        "change_id": { "key": "agenttel.correlation.change_id", "type": "string", "description": "ID of the correlated change" },
-        "time_delta_ms": { "key": "agenttel.correlation.time_delta_ms", "type": "int", "description": "Time delta between change and anomaly in milliseconds" },
-        "confidence": { "key": "agenttel.correlation.confidence", "type": "double", "description": "Correlation confidence score (0.0-1.0)" }
+        "likely_cause": { "key": "agenttel.correlation.likely_cause", "type": "string", "description": "Description of the likely cause", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.correlation.likely_cause" } },
+        "change_id": { "key": "agenttel.correlation.change_id", "type": "string", "description": "ID of the correlated change", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.correlation.change_id" } },
+        "time_delta_ms": { "key": "agenttel.correlation.time_delta_ms", "type": "int", "description": "Time delta between change and anomaly in milliseconds", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.correlation.time_delta_ms" } },
+        "confidence": { "key": "agenttel.correlation.confidence", "type": "double", "description": "Correlation confidence score (0.0-1.0)", "stability": "development", "kind": "derived", "level": "span", "upstream": { "status": "later", "key": "reliability.correlation.confidence" } }
       }
     },
     "agenttel.agent": {
       "description": "Autonomous agent identity attributes",
       "attributes": {
-        "id": { "key": "agenttel.agent.id", "type": "string", "description": "Unique agent identifier" },
-        "role": { "key": "agenttel.agent.role", "type": "string", "description": "Agent role (e.g. slo, incident, monitor)" },
-        "session_id": { "key": "agenttel.agent.session_id", "type": "string", "description": "Agent session identifier" }
+        "id": { "key": "agenttel.agent.id", "type": "string", "description": "Unique agent identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Identity of the consuming agent; reconcile with gen_ai.agent.*" } },
+        "role": { "key": "agenttel.agent.role", "type": "string", "description": "Agent role (e.g. slo, incident, monitor)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Identity of the consuming agent; reconcile with gen_ai.agent.*" } },
+        "session_id": { "key": "agenttel.agent.session_id", "type": "string", "description": "Agent session identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Identity of the consuming agent; reconcile with gen_ai.agent.*" } }
       }
     },
     "agenttel.session": {
       "description": "Logical session grouping for related spans",
       "attributes": {
-        "id": { "key": "agenttel.session.id", "type": "string", "description": "Session identifier" },
-        "incident_id": { "key": "agenttel.session.incident_id", "type": "string", "description": "Associated incident identifier" }
+        "id": { "key": "agenttel.session.id", "type": "string", "description": "Session identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "session.id" } },
+        "incident_id": { "key": "agenttel.session.incident_id", "type": "string", "description": "Associated incident identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "later", "key": "reliability.session.incident_id" } }
       }
     },
     "agenttel.circuit_breaker": {
       "description": "Circuit breaker state transition tracking",
       "attributes": {
-        "name": { "key": "agenttel.circuit_breaker.name", "type": "string", "description": "Circuit breaker name" },
-        "previous_state": { "key": "agenttel.circuit_breaker.previous_state", "type": "string", "description": "Previous circuit breaker state" },
-        "new_state": { "key": "agenttel.circuit_breaker.new_state", "type": "string", "description": "New circuit breaker state" },
-        "failure_count": { "key": "agenttel.circuit_breaker.failure_count", "type": "int", "description": "Number of consecutive failures" },
-        "dependency": { "key": "agenttel.circuit_breaker.dependency", "type": "string", "description": "Dependency protected by the circuit breaker" },
-        "state_change": { "key": "agenttel.circuit_breaker.state_change", "type": "string", "description": "Circuit breaker state change event name" }
-      }
-    },
-    "agenttel.dependency": {
-      "description": "Dependency state event attributes",
-      "attributes": {
-        "state_change": { "key": "agenttel.dependency.state_change", "type": "string", "description": "Dependency state change event name" }
+        "name": { "key": "agenttel.circuit_breaker.name", "type": "string", "description": "Circuit breaker name", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "later", "key": "reliability.circuit_breaker.name" } },
+        "previous_state": { "key": "agenttel.circuit_breaker.previous_state", "type": "string", "description": "Previous circuit breaker state", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "later", "key": "reliability.circuit_breaker.previous_state" } },
+        "new_state": { "key": "agenttel.circuit_breaker.new_state", "type": "string", "description": "New circuit breaker state", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "later", "key": "reliability.circuit_breaker.new_state" } },
+        "failure_count": { "key": "agenttel.circuit_breaker.failure_count", "type": "int", "description": "Number of consecutive failures", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "later", "key": "reliability.circuit_breaker.failure_count" } },
+        "dependency": { "key": "agenttel.circuit_breaker.dependency", "type": "string", "description": "Dependency protected by the circuit breaker", "stability": "development", "kind": "observed", "level": "event", "upstream": { "status": "later", "key": "reliability.circuit_breaker.dependency" } }
       }
     },
     "agenttel.agentic.agent": {
       "description": "Agentic agent identity attributes",
       "attributes": {
-        "name": { "key": "agenttel.agentic.agent.name", "type": "string", "description": "Agent name" },
-        "type": { "key": "agenttel.agentic.agent.type", "type": "string", "description": "Agent type (e.g. chatbot, autonomous, semi-autonomous)" },
-        "framework": { "key": "agenttel.agentic.agent.framework", "type": "string", "description": "Agent framework (e.g. langchain, autogen, crewai)" },
-        "version": { "key": "agenttel.agentic.agent.version", "type": "string", "description": "Agent version string" }
+        "name": { "key": "agenttel.agentic.agent.name", "type": "string", "description": "Agent name", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "type": { "key": "agenttel.agentic.agent.type", "type": "string", "description": "Agent type (e.g. chatbot, autonomous, semi-autonomous)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "framework": { "key": "agenttel.agentic.agent.framework", "type": "string", "description": "Agent framework (e.g. langchain, autogen, crewai)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "version": { "key": "agenttel.agentic.agent.version", "type": "string", "description": "Agent version string", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.invocation": {
       "description": "Agentic invocation tracking",
       "attributes": {
-        "id": { "key": "agenttel.agentic.invocation.id", "type": "string", "description": "Unique invocation identifier" },
-        "goal": { "key": "agenttel.agentic.invocation.goal", "type": "string", "description": "Goal or objective of the invocation" },
-        "status": { "key": "agenttel.agentic.invocation.status", "type": "string", "description": "Invocation status (e.g. running, completed, failed)" },
-        "steps": { "key": "agenttel.agentic.invocation.steps", "type": "int", "description": "Number of steps executed" },
-        "max_steps": { "key": "agenttel.agentic.invocation.max_steps", "type": "int", "description": "Maximum allowed steps" }
+        "id": { "key": "agenttel.agentic.invocation.id", "type": "string", "description": "Unique invocation identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "goal": { "key": "agenttel.agentic.invocation.goal", "type": "string", "description": "Goal or objective of the invocation", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "status": { "key": "agenttel.agentic.invocation.status", "type": "string", "description": "Invocation status (e.g. running, completed, failed)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "steps": { "key": "agenttel.agentic.invocation.steps", "type": "int", "description": "Number of steps executed", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "max_steps": { "key": "agenttel.agentic.invocation.max_steps", "type": "int", "description": "Maximum allowed steps", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.task": {
       "description": "Agentic task tracking",
       "attributes": {
-        "id": { "key": "agenttel.agentic.task.id", "type": "string", "description": "Task identifier" },
-        "name": { "key": "agenttel.agentic.task.name", "type": "string", "description": "Task name" },
-        "status": { "key": "agenttel.agentic.task.status", "type": "string", "description": "Task status" },
-        "parent_id": { "key": "agenttel.agentic.task.parent_id", "type": "string", "description": "Parent task identifier for hierarchical tasks" },
-        "depth": { "key": "agenttel.agentic.task.depth", "type": "int", "description": "Depth in task hierarchy" }
+        "id": { "key": "agenttel.agentic.task.id", "type": "string", "description": "Task identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "name": { "key": "agenttel.agentic.task.name", "type": "string", "description": "Task name", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "status": { "key": "agenttel.agentic.task.status", "type": "string", "description": "Task status", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "parent_id": { "key": "agenttel.agentic.task.parent_id", "type": "string", "description": "Parent task identifier for hierarchical tasks", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "depth": { "key": "agenttel.agentic.task.depth", "type": "int", "description": "Depth in task hierarchy", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.step": {
       "description": "Agentic step and reasoning attributes",
       "attributes": {
-        "number": { "key": "agenttel.agentic.step.number", "type": "int", "description": "Step sequence number" },
-        "type": { "key": "agenttel.agentic.step.type", "type": "string", "description": "Step type (e.g. reasoning, tool_call, observation)" },
-        "iteration": { "key": "agenttel.agentic.step.iteration", "type": "int", "description": "Iteration number within a retry/loop" },
-        "tool_name": { "key": "agenttel.agentic.step.tool_name", "type": "string", "description": "Name of the tool invoked" },
-        "tool_status": { "key": "agenttel.agentic.step.tool_status", "type": "string", "description": "Tool invocation status (e.g. success, error, timeout)" }
+        "number": { "key": "agenttel.agentic.step.number", "type": "int", "description": "Step sequence number", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "type": { "key": "agenttel.agentic.step.type", "type": "string", "description": "Step type (e.g. reasoning, tool_call, observation)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "iteration": { "key": "agenttel.agentic.step.iteration", "type": "int", "description": "Iteration number within a retry/loop", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "tool_name": { "key": "agenttel.agentic.step.tool_name", "type": "string", "description": "Name of the tool invoked", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "tool_status": { "key": "agenttel.agentic.step.tool_status", "type": "string", "description": "Tool invocation status (e.g. success, error, timeout)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.orchestration": {
       "description": "Multi-agent orchestration attributes",
       "attributes": {
-        "pattern": { "key": "agenttel.agentic.orchestration.pattern", "type": "string", "description": "Orchestration pattern (e.g. sequential, parallel, hierarchical)" },
-        "coordinator_id": { "key": "agenttel.agentic.orchestration.coordinator_id", "type": "string", "description": "Coordinator agent identifier" },
-        "stage": { "key": "agenttel.agentic.orchestration.stage", "type": "string", "description": "Current orchestration stage" },
-        "total_stages": { "key": "agenttel.agentic.orchestration.total_stages", "type": "int", "description": "Total number of orchestration stages" },
-        "parallel_branches": { "key": "agenttel.agentic.orchestration.parallel_branches", "type": "int", "description": "Number of parallel branches" },
-        "aggregation": { "key": "agenttel.agentic.orchestration.aggregation", "type": "string", "description": "Aggregation strategy for parallel results" }
+        "pattern": { "key": "agenttel.agentic.orchestration.pattern", "type": "string", "description": "Orchestration pattern (e.g. sequential, parallel, hierarchical)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "coordinator_id": { "key": "agenttel.agentic.orchestration.coordinator_id", "type": "string", "description": "Coordinator agent identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "stage": { "key": "agenttel.agentic.orchestration.stage", "type": "int", "description": "1-based stage number within the orchestration", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "total_stages": { "key": "agenttel.agentic.orchestration.total_stages", "type": "int", "description": "Total number of orchestration stages", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "parallel_branches": { "key": "agenttel.agentic.orchestration.parallel_branches", "type": "int", "description": "Number of parallel branches", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "aggregation": { "key": "agenttel.agentic.orchestration.aggregation", "type": "string", "description": "Aggregation strategy for parallel results", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.handoff": {
       "description": "Agent-to-agent handoff attributes",
       "attributes": {
-        "from_agent": { "key": "agenttel.agentic.handoff.from_agent", "type": "string", "description": "Name of the agent handing off" },
-        "to_agent": { "key": "agenttel.agentic.handoff.to_agent", "type": "string", "description": "Name of the agent receiving handoff" },
-        "reason": { "key": "agenttel.agentic.handoff.reason", "type": "string", "description": "Reason for the handoff" },
-        "chain_depth": { "key": "agenttel.agentic.handoff.chain_depth", "type": "int", "description": "Depth in the handoff chain" }
+        "from_agent": { "key": "agenttel.agentic.handoff.from_agent", "type": "string", "description": "Name of the agent handing off", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "to_agent": { "key": "agenttel.agentic.handoff.to_agent", "type": "string", "description": "Name of the agent receiving handoff", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "reason": { "key": "agenttel.agentic.handoff.reason", "type": "string", "description": "Reason for the handoff", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "chain_depth": { "key": "agenttel.agentic.handoff.chain_depth", "type": "int", "description": "Depth in the handoff chain", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.cost": {
       "description": "Agentic operation cost tracking",
       "attributes": {
-        "total_usd": { "key": "agenttel.agentic.cost.total_usd", "type": "double", "description": "Total cost in USD for the agentic operation" },
-        "input_tokens": { "key": "agenttel.agentic.cost.input_tokens", "type": "int", "description": "Total input tokens consumed" },
-        "output_tokens": { "key": "agenttel.agentic.cost.output_tokens", "type": "int", "description": "Total output tokens generated" },
-        "llm_calls": { "key": "agenttel.agentic.cost.llm_calls", "type": "int", "description": "Number of LLM calls made" },
-        "reasoning_tokens": { "key": "agenttel.agentic.cost.reasoning_tokens", "type": "int", "description": "Reasoning/thinking tokens consumed" },
-        "cached_read_tokens": { "key": "agenttel.agentic.cost.cached_read_tokens", "type": "int", "description": "Tokens read from cache" },
-        "cached_write_tokens": { "key": "agenttel.agentic.cost.cached_write_tokens", "type": "int", "description": "Tokens written to cache" }
+        "total_usd": { "key": "agenttel.agentic.cost.total_usd", "type": "double", "description": "Total cost in USD for the agentic operation", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "input_tokens": { "key": "agenttel.agentic.cost.input_tokens", "type": "int", "description": "Total input tokens consumed", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "output_tokens": { "key": "agenttel.agentic.cost.output_tokens", "type": "int", "description": "Total output tokens generated", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "llm_calls": { "key": "agenttel.agentic.cost.llm_calls", "type": "int", "description": "Number of LLM calls made", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "reasoning_tokens": { "key": "agenttel.agentic.cost.reasoning_tokens", "type": "int", "description": "Reasoning/thinking tokens consumed", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "cached_read_tokens": { "key": "agenttel.agentic.cost.cached_read_tokens", "type": "int", "description": "Tokens read from cache", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "cached_write_tokens": { "key": "agenttel.agentic.cost.cached_write_tokens", "type": "int", "description": "Tokens written to cache", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.quality": {
       "description": "Agentic output quality metrics",
       "attributes": {
-        "goal_achieved": { "key": "agenttel.agentic.quality.goal_achieved", "type": "boolean", "description": "Whether the invocation goal was achieved" },
-        "human_interventions": { "key": "agenttel.agentic.quality.human_interventions", "type": "int", "description": "Number of human interventions during execution" },
-        "loop_detected": { "key": "agenttel.agentic.quality.loop_detected", "type": "boolean", "description": "Whether a reasoning loop was detected" },
-        "loop_iterations": { "key": "agenttel.agentic.quality.loop_iterations", "type": "int", "description": "Number of loop iterations before detection" },
-        "eval_score": { "key": "agenttel.agentic.quality.eval_score", "type": "double", "description": "Evaluation quality score" }
+        "goal_achieved": { "key": "agenttel.agentic.quality.goal_achieved", "type": "boolean", "description": "Whether the invocation goal was achieved", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "human_interventions": { "key": "agenttel.agentic.quality.human_interventions", "type": "int", "description": "Number of human interventions during execution", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "loop_detected": { "key": "agenttel.agentic.quality.loop_detected", "type": "boolean", "description": "Whether a reasoning loop was detected", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "loop_iterations": { "key": "agenttel.agentic.quality.loop_iterations", "type": "int", "description": "Number of loop iterations before detection", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "eval_score": { "key": "agenttel.agentic.quality.eval_score", "type": "double", "description": "Evaluation quality score", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.guardrail": {
       "description": "Agentic guardrail enforcement attributes",
       "attributes": {
-        "triggered": { "key": "agenttel.agentic.guardrail.triggered", "type": "boolean", "description": "Whether a guardrail was triggered" },
-        "name": { "key": "agenttel.agentic.guardrail.name", "type": "string", "description": "Name of the triggered guardrail" },
-        "action": { "key": "agenttel.agentic.guardrail.action", "type": "string", "description": "Action taken (e.g. block, warn, modify)" },
-        "reason": { "key": "agenttel.agentic.guardrail.reason", "type": "string", "description": "Reason the guardrail was triggered" }
+        "triggered": { "key": "agenttel.agentic.guardrail.triggered", "type": "boolean", "description": "Whether a guardrail was triggered", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "name": { "key": "agenttel.agentic.guardrail.name", "type": "string", "description": "Name of the triggered guardrail", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "action": { "key": "agenttel.agentic.guardrail.action", "type": "string", "description": "Action taken (e.g. block, warn, modify)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "reason": { "key": "agenttel.agentic.guardrail.reason", "type": "string", "description": "Reason the guardrail was triggered", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.memory": {
       "description": "Agentic memory operation attributes",
       "attributes": {
-        "operation": { "key": "agenttel.agentic.memory.operation", "type": "string", "description": "Memory operation type (e.g. read, write, search)" },
-        "store_type": { "key": "agenttel.agentic.memory.store_type", "type": "string", "description": "Memory store type (e.g. short_term, long_term, episodic)" },
-        "items": { "key": "agenttel.agentic.memory.items", "type": "int", "description": "Number of memory items involved" }
+        "operation": { "key": "agenttel.agentic.memory.operation", "type": "string", "description": "Memory operation type (e.g. read, write, search)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "store_type": { "key": "agenttel.agentic.memory.store_type", "type": "string", "description": "Memory store type (e.g. short_term, long_term, episodic)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "items": { "key": "agenttel.agentic.memory.items", "type": "int", "description": "Number of memory items involved", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.human": {
       "description": "Human-in-the-loop checkpoint attributes",
       "attributes": {
-        "checkpoint_type": { "key": "agenttel.agentic.human.checkpoint_type", "type": "string", "description": "Checkpoint type (e.g. approval, review, feedback)" },
-        "wait_ms": { "key": "agenttel.agentic.human.wait_ms", "type": "int", "description": "Time waiting for human response in milliseconds" },
-        "decision": { "key": "agenttel.agentic.human.decision", "type": "string", "description": "Human decision (e.g. approve, reject, modify)" }
+        "checkpoint_type": { "key": "agenttel.agentic.human.checkpoint_type", "type": "string", "description": "Checkpoint type (e.g. approval, review, feedback)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "wait_ms": { "key": "agenttel.agentic.human.wait_ms", "type": "int", "description": "Time waiting for human response in milliseconds", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "decision": { "key": "agenttel.agentic.human.decision", "type": "string", "description": "Human decision (e.g. approve, reject, modify)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.code": {
       "description": "Agentic code execution attributes",
       "attributes": {
-        "language": { "key": "agenttel.agentic.code.language", "type": "string", "description": "Programming language of executed code" },
-        "status": { "key": "agenttel.agentic.code.status", "type": "string", "description": "Execution status (e.g. success, error, timeout)" },
-        "exit_code": { "key": "agenttel.agentic.code.exit_code", "type": "int", "description": "Process exit code" },
-        "sandboxed": { "key": "agenttel.agentic.code.sandboxed", "type": "boolean", "description": "Whether execution was sandboxed" }
+        "language": { "key": "agenttel.agentic.code.language", "type": "string", "description": "Programming language of executed code", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "status": { "key": "agenttel.agentic.code.status", "type": "string", "description": "Execution status (e.g. success, error, timeout)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "exit_code": { "key": "agenttel.agentic.code.exit_code", "type": "int", "description": "Process exit code", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "sandboxed": { "key": "agenttel.agentic.code.sandboxed", "type": "boolean", "description": "Whether execution was sandboxed", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.eval": {
       "description": "Agentic evaluation and scoring attributes",
       "attributes": {
-        "scorer_name": { "key": "agenttel.agentic.eval.scorer_name", "type": "string", "description": "Name of the evaluation scorer" },
-        "criteria": { "key": "agenttel.agentic.eval.criteria", "type": "string", "description": "Evaluation criteria" },
-        "score": { "key": "agenttel.agentic.eval.score", "type": "double", "description": "Evaluation score" },
-        "feedback": { "key": "agenttel.agentic.eval.feedback", "type": "string", "description": "Evaluation feedback text" },
-        "type": { "key": "agenttel.agentic.eval.type", "type": "string", "description": "Evaluation type (e.g. llm_judge, human, automated)" }
+        "scorer_name": { "key": "agenttel.agentic.eval.scorer_name", "type": "string", "description": "Name of the evaluation scorer", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "criteria": { "key": "agenttel.agentic.eval.criteria", "type": "string", "description": "Evaluation criteria", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "score": { "key": "agenttel.agentic.eval.score", "type": "double", "description": "Evaluation score", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "feedback": { "key": "agenttel.agentic.eval.feedback", "type": "string", "description": "Evaluation feedback text", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "type": { "key": "agenttel.agentic.eval.type", "type": "string", "description": "Evaluation type (e.g. llm_judge, human, automated)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.conversation": {
       "description": "Agentic conversation tracking attributes",
       "attributes": {
-        "id": { "key": "agenttel.agentic.conversation.id", "type": "string", "description": "Conversation identifier" },
-        "turn": { "key": "agenttel.agentic.conversation.turn", "type": "int", "description": "Conversation turn number" },
-        "message_count": { "key": "agenttel.agentic.conversation.message_count", "type": "int", "description": "Total messages in conversation" },
-        "speaker_role": { "key": "agenttel.agentic.conversation.speaker_role", "type": "string", "description": "Speaker role (e.g. user, assistant, system)" }
+        "id": { "key": "agenttel.agentic.conversation.id", "type": "string", "description": "Conversation identifier", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "turn": { "key": "agenttel.agentic.conversation.turn", "type": "int", "description": "Conversation turn number", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "message_count": { "key": "agenttel.agentic.conversation.message_count", "type": "int", "description": "Total messages in conversation", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "speaker_role": { "key": "agenttel.agentic.conversation.speaker_role", "type": "string", "description": "Speaker role (e.g. user, assistant, system)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.retrieval": {
       "description": "Agentic retrieval (RAG) operation attributes",
       "attributes": {
-        "query": { "key": "agenttel.agentic.retrieval.query", "type": "string", "description": "Retrieval query text" },
-        "store_type": { "key": "agenttel.agentic.retrieval.store_type", "type": "string", "description": "Retrieval store type (e.g. vector, keyword, hybrid)" },
-        "document_count": { "key": "agenttel.agentic.retrieval.document_count", "type": "int", "description": "Number of documents retrieved" },
-        "top_k": { "key": "agenttel.agentic.retrieval.top_k", "type": "int", "description": "Top-K parameter used for retrieval" },
-        "relevance_score_avg": { "key": "agenttel.agentic.retrieval.relevance_score_avg", "type": "double", "description": "Average relevance score of retrieved documents" },
-        "relevance_score_min": { "key": "agenttel.agentic.retrieval.relevance_score_min", "type": "double", "description": "Minimum relevance score of retrieved documents" }
+        "query": { "key": "agenttel.agentic.retrieval.query", "type": "string", "description": "Retrieval query text", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "store_type": { "key": "agenttel.agentic.retrieval.store_type", "type": "string", "description": "Retrieval store type (e.g. vector, keyword, hybrid)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "document_count": { "key": "agenttel.agentic.retrieval.document_count", "type": "int", "description": "Number of documents retrieved", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "top_k": { "key": "agenttel.agentic.retrieval.top_k", "type": "int", "description": "Top-K parameter used for retrieval", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "relevance_score_avg": { "key": "agenttel.agentic.retrieval.relevance_score_avg", "type": "double", "description": "Average relevance score of retrieved documents", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "relevance_score_min": { "key": "agenttel.agentic.retrieval.relevance_score_min", "type": "double", "description": "Minimum relevance score of retrieved documents", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.reranker": {
       "description": "Agentic reranker operation attributes",
       "attributes": {
-        "model": { "key": "agenttel.agentic.reranker.model", "type": "string", "description": "Reranker model name" },
-        "input_documents": { "key": "agenttel.agentic.reranker.input_documents", "type": "int", "description": "Number of input documents to reranker" },
-        "output_documents": { "key": "agenttel.agentic.reranker.output_documents", "type": "int", "description": "Number of output documents after reranking" },
-        "top_score": { "key": "agenttel.agentic.reranker.top_score", "type": "double", "description": "Highest reranker score" }
+        "model": { "key": "agenttel.agentic.reranker.model", "type": "string", "description": "Reranker model name", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "input_documents": { "key": "agenttel.agentic.reranker.input_documents", "type": "int", "description": "Number of input documents to reranker", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "output_documents": { "key": "agenttel.agentic.reranker.output_documents", "type": "int", "description": "Number of output documents after reranking", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "top_score": { "key": "agenttel.agentic.reranker.top_score", "type": "double", "description": "Highest reranker score", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.error": {
       "description": "Agentic error classification attributes",
       "attributes": {
-        "source": { "key": "agenttel.agentic.error.source", "type": "string", "description": "Error source (e.g. tool, llm, guardrail, orchestration)" },
-        "category": { "key": "agenttel.agentic.error.category", "type": "string", "description": "Error category (e.g. timeout, rate_limit, invalid_output)" },
-        "retryable": { "key": "agenttel.agentic.error.retryable", "type": "boolean", "description": "Whether the error is retryable" }
+        "source": { "key": "agenttel.agentic.error.source", "type": "string", "description": "Error source (e.g. tool, llm, guardrail, orchestration)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "category": { "key": "agenttel.agentic.error.category", "type": "string", "description": "Error category (e.g. timeout, rate_limit, invalid_output)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "retryable": { "key": "agenttel.agentic.error.retryable", "type": "boolean", "description": "Whether the error is retryable", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "agenttel.agentic.capability": {
       "description": "Agentic capability metadata attributes",
       "attributes": {
-        "tool_count": { "key": "agenttel.agentic.capability.tool_count", "type": "int", "description": "Number of tools available to the agent" },
-        "system_prompt_hash": { "key": "agenttel.agentic.capability.system_prompt_hash", "type": "string", "description": "Hash of the system prompt for change tracking" }
+        "tools": { "key": "agenttel.agentic.capability.tools", "type": "string[]", "description": "Names of the tools available to the agent", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "tool_count": { "key": "agenttel.agentic.capability.tool_count", "type": "int", "description": "Number of tools available to the agent", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } },
+        "system_prompt_hash": { "key": "agenttel.agentic.capability.system_prompt_hash", "type": "string", "description": "Hash of the system prompt for change tracking", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "out_of_scope", "note": "Agent internals; see OTel semconv issue #2664" } }
       }
     },
     "gen_ai": {
       "description": "Standard OpenTelemetry GenAI semantic convention attributes",
       "attributes": {
-        "operation.name": { "key": "gen_ai.operation.name", "type": "string", "description": "GenAI operation name (e.g. chat, completion, embedding)" },
-        "system": { "key": "gen_ai.system", "type": "string", "description": "GenAI system (e.g. openai, anthropic, cohere)" },
-        "request.model": { "key": "gen_ai.request.model", "type": "string", "description": "Requested model name" },
-        "request.temperature": { "key": "gen_ai.request.temperature", "type": "double", "description": "Sampling temperature" },
-        "request.max_tokens": { "key": "gen_ai.request.max_tokens", "type": "int", "description": "Maximum tokens to generate" },
-        "request.top_p": { "key": "gen_ai.request.top_p", "type": "double", "description": "Top-p (nucleus) sampling parameter" },
-        "response.model": { "key": "gen_ai.response.model", "type": "string", "description": "Actual model used in the response" },
-        "response.id": { "key": "gen_ai.response.id", "type": "string", "description": "Response identifier from the provider" },
-        "response.finish_reasons": { "key": "gen_ai.response.finish_reasons", "type": "string", "description": "Finish reasons for the response (e.g. stop, length)" },
-        "usage.input_tokens": { "key": "gen_ai.usage.input_tokens", "type": "int", "description": "Number of input tokens consumed" },
-        "usage.output_tokens": { "key": "gen_ai.usage.output_tokens", "type": "int", "description": "Number of output tokens generated" }
+        "operation.name": { "key": "gen_ai.operation.name", "type": "string", "description": "GenAI operation name (e.g. chat, completion, embedding)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.operation.name" } },
+        "system": { "key": "gen_ai.system", "type": "string", "description": "GenAI system (e.g. openai, anthropic, cohere)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.system", "note": "Deprecated upstream in favour of gen_ai.provider.name" } },
+        "request.model": { "key": "gen_ai.request.model", "type": "string", "description": "Requested model name", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.request.model" } },
+        "request.temperature": { "key": "gen_ai.request.temperature", "type": "double", "description": "Sampling temperature", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.request.temperature" } },
+        "request.max_tokens": { "key": "gen_ai.request.max_tokens", "type": "int", "description": "Maximum tokens to generate", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.request.max_tokens" } },
+        "request.top_p": { "key": "gen_ai.request.top_p", "type": "double", "description": "Top-p (nucleus) sampling parameter", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.request.top_p" } },
+        "response.model": { "key": "gen_ai.response.model", "type": "string", "description": "Actual model used in the response", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.response.model" } },
+        "response.id": { "key": "gen_ai.response.id", "type": "string", "description": "Response identifier from the provider", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.response.id" } },
+        "response.finish_reasons": { "key": "gen_ai.response.finish_reasons", "type": "string[]", "description": "Finish reasons for the response, one per choice (e.g. stop, length)", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.response.finish_reasons" } },
+        "usage.input_tokens": { "key": "gen_ai.usage.input_tokens", "type": "int", "description": "Number of input tokens consumed", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.usage.input_tokens" } },
+        "usage.output_tokens": { "key": "gen_ai.usage.output_tokens", "type": "int", "description": "Number of output tokens generated", "stability": "development", "kind": "observed", "level": "span", "upstream": { "status": "otel_existing", "key": "gen_ai.usage.output_tokens" } }
       }
     }
+  },
+  "events": {
+    "agenttel.anomaly.detected": { "description": "Anomaly detected on an operation", "attributes": "agenttel.anomaly.*", "stability": "development", "upstream": { "status": "later", "key": "reliability.anomaly.detected", "note": "Shares its name with the span attribute agenttel.anomaly.detected" } },
+    "agenttel.circuit_breaker.state_change": { "description": "Circuit breaker changed state", "attributes": "agenttel.circuit_breaker.*", "stability": "development", "upstream": { "status": "later", "key": "reliability.circuit_breaker.state_change" } },
+    "agenttel.dependency.state_change": { "description": "Dependency health changed", "attributes": "agenttel.dependency.*", "stability": "development", "upstream": { "status": "candidate", "key": "reliability.dependency.state_change" } },
+    "agenttel.deployment.info": { "description": "Deployment metadata emitted once at startup", "attributes": "agenttel.deployment.*", "stability": "development", "upstream": { "status": "later", "key": "reliability.deployment.info", "note": "Overlaps OTel deployment.* attributes" } },
+    "agenttel.slo.budget_alert": { "description": "Error budget crossed an alert threshold", "attributes": "agenttel.slo.*", "stability": "development", "upstream": { "status": "later", "key": "reliability.slo.budget_alert" } }
   }
 }

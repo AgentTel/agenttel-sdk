@@ -65,6 +65,7 @@ nav:
     - GenAI Instrumentation: guides/genai-instrumentation.md
   - Reference:
     - Attribute Dictionary: reference/attribute-dictionary.md
+    - Attribute Schema: reference/attribute-schema.md
     - Agentic Attributes: reference/agent-attributes.md
     - Event Catalog: reference/event-catalog.md
     - Configuration: reference/configuration.md
