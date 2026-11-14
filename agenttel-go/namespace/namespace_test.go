@@ -181,7 +181,8 @@ func TestMappingIsIdempotent(t *testing.T) {
 		m := NewMapper(mode)
 		once := m.MapAttributes(in)
 		twice := m.MapAttributes(once)
-		if attribute.NewSet(once...).Equivalent() != attribute.NewSet(twice...).Equivalent() {
+		onceSet, twiceSet := attribute.NewSet(once...), attribute.NewSet(twice...)
+		if !onceSet.Equals(&twiceSet) {
 			t.Errorf("%s: mapping twice changed the attributes: %v vs %v", mode, once, twice)
 		}
 		if _, changed := m.mapAttributes(once); changed {
