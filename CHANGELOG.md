@@ -20,6 +20,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Added `agenttel.agentic.capability.tools` (already emitted by the JVM) to the schema and to the Go, Node.js and Python constants.
 - `scripts/validate-attributes.sh` now checks the JVM SDK, including attribute types, and validates the upstream metadata.
 
+### Weaver registry and schema freeze
+
+- `model/` holds the `upstream.status: candidate` entries as an OpenTelemetry Weaver registry in the semantic-conventions repository's format, generated from `attributes.json` by `scripts/generate-semconv-registry.py`.
+- New CI job `semconv-registry` (`scripts/check-semconv-registry.sh`): the registry must pass Weaver, pass the semantic-conventions repository's own policy check, and stay backward compatible with the base branch. Candidates can be added but not removed, retyped or renamed except through deprecation (`upstream.renamed_to`).
+- `attributes.json` (schema 1.2.0) adds `examples`, `enum_briefs` and `note` fields, required where the registry needs them.
+- New candidate attributes `agenttel.dependency.name`, `previous_state` and `new_state` (proposed as `reliability.dependency.*`) define the `agenttel.dependency.state_change` event's attributes. Constants added in every SDK.
+- The `attribute-parity` CI job is blocking again: every SDK now passes it.
+
 ## [0.4.0-alpha] - 2026-10-20
 
 Every SDK now reads the same `agenttel.yml` and puts the same attributes on HTTP server spans. Package versions: Maven `0.4.0-alpha`, npm `0.4.0-alpha.0`, PyPI `0.4.0a1`, Go `agenttel-go/v0.4.0-alpha`.

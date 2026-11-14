@@ -63,6 +63,7 @@ METADATA_ERRORS=$(jq -r '
     | check($where; $u != null; "missing upstream"),
       (if $u then
          check($where; ($u.status | IN("candidate", "later", "otel_existing", "out_of_scope", "internal")); "bad upstream.status \($u.status)"),
+         check($where; ($u.renamed_to == null) or (.stability == "deprecated"); "upstream.renamed_to needs stability deprecated"),
          (if ($u.status | IN("candidate", "later")) then
             check($where; ($u.key // "" | startswith("reliability.")); "upstream.key must start with reliability.")
           elif $u.status == "otel_existing" then
@@ -76,6 +77,17 @@ METADATA_ERRORS=$(jq -r '
     check($k; (.stability | IN("development", "stable", "deprecated")); "bad stability \(.stability)"),
     check($k; (.kind | IN("declared", "derived", "hybrid", "observed")); "bad kind \(.kind)"),
     check($k; (.level | IN("resource", "span", "event")); "bad level \(.level)"),
+    check($k; (.enum_briefs == null) or ((.enum_briefs | keys | sort) == (.enum // [] | sort)); "enum_briefs must cover exactly the enum values"),
+    check($k; (.examples == null) or (.examples | type == "array" and length > 0); "examples must be a non-empty array"),
+    # Candidates become the Weaver registry, which needs examples and enum member briefs
+    (if .upstream.status == "candidate" then
+       check($k; (.type == "boolean") or (.examples != null); "candidate needs examples"),
+       check($k; (.enum == null) or (.enum_briefs != null); "candidate enum needs enum_briefs"),
+       (.type as $t | .enum as $e | (.examples // [])[] as $x |
+         check($k; ({"string": "string", "string[]": "string", "boolean": "boolean"}[$t] // "number") == ($x | type)
+                   and ($t != "int" or ($x | floor) == $x); "example \($x) is not a \($t)"),
+         check($k; ($e == null) or ($e | index($x)) != null; "example \($x) is not in the enum"))
+     else empty end),
     check_upstream($k)),
   (.events | to_entries[] | .key as $k | .value |
     check($k; (.stability | IN("development", "stable", "deprecated")); "bad stability \(.stability)"),
@@ -100,11 +112,18 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1c. Generated namespace maps must match attributes.json
+# 1c. Generated namespace maps and Weaver registry must match attributes.json
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "\n${BOLD}Generated namespace maps${RESET}"
 if GENERATOR_OUTPUT=$(python3 "$SCRIPT_DIR/generate-namespace-maps.py" --check 2>&1); then
   pass "Namespace maps in every SDK match attributes.json"
+else
+  fail "$GENERATOR_OUTPUT"
+  EXIT_CODE=1
+fi
+
+if GENERATOR_OUTPUT=$(python3 "$SCRIPT_DIR/generate-semconv-registry.py" --check 2>&1); then
+  pass "Weaver registry in model/ matches attributes.json"
 else
   fail "$GENERATOR_OUTPUT"
   EXIT_CODE=1

@@ -184,4 +184,12 @@ public final class AgentTelAttributes {
             AttributeKey.longKey("agenttel.circuit_breaker.failure_count");
     public static final AttributeKey<String> CIRCUIT_BREAKER_DEPENDENCY =
             AttributeKey.stringKey("agenttel.circuit_breaker.dependency");
+
+    // --- Dependency health event ---
+    public static final AttributeKey<String> DEPENDENCY_NAME =
+            AttributeKey.stringKey("agenttel.dependency.name");
+    public static final AttributeKey<String> DEPENDENCY_PREVIOUS_STATE =
+            AttributeKey.stringKey("agenttel.dependency.previous_state");
+    public static final AttributeKey<String> DEPENDENCY_NEW_STATE =
+            AttributeKey.stringKey("agenttel.dependency.new_state");
 }

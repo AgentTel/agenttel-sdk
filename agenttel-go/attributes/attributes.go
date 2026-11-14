@@ -139,6 +139,13 @@ const (
 	CircuitBreakerDependency    = "agenttel.circuit_breaker.dependency"
 )
 
+// Dependency attributes describe a dependency health change event.
+const (
+	DependencyName          = "agenttel.dependency.name"
+	DependencyPreviousState = "agenttel.dependency.previous_state"
+	DependencyNewState      = "agenttel.dependency.new_state"
+)
+
 // Event name constants for structured event emission.
 const (
 	EventDeploymentInfo            = "agenttel.deployment.info"
