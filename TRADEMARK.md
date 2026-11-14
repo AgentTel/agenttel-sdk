@@ -26,8 +26,8 @@ You **may** use the "AgentTel" name to:
 You **may not** use the "AgentTel" name to:
 
 - Name your own product, project, or service in a way that implies official
-  endorsement or affiliation (e.g., "SuperAgentTel", "AgentTel Cloud",
-  "AgentTel Enterprise") without written permission.
+  endorsement or affiliation (e.g., "SuperAgentTel", "AgentTelHub",
+  "AgentTel for Kubernetes") without written permission.
 - Create a modified version of AgentTel and distribute it under the
   "AgentTel" name without clearly distinguishing it from the official release.
 - Use the name in domain names, social media accounts, or package registry
